@@ -8,6 +8,12 @@ The successful hosted build and downloadable artifacts are recorded in
 
 ## Builds on GitHub
 
+Download the private owner-evaluation
+[v0.1.0-alpha.1 pre-release](https://github.com/YeloBoi/next-download-manager/releases/tag/v0.1.0-alpha.1)
+from **Releases → Assets**. For installation, choose
+`NDM_0.1.0-alpha.1_x64-setup.exe` (4.54 MB). The portable ZIP, Chromium extension,
+SHA256SUMS and release notes are separate assets. Sign in as a repository member.
+
 All dependency installation, Rust compilation, tests and packaging run in
 **GitHub Actions → Windows checks and build**. No local build is required.
 After a successful run, choose only the artifact you need: `ndm-installer-windows-x64`,

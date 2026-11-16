@@ -1,6 +1,8 @@
 # Acceptance status
 
-Development alpha. No GitHub pre-release is asserted until it actually exists.
+Development alpha. The private owner-evaluation
+[v0.1.0-alpha.1 pre-release](https://github.com/YeloBoi/next-download-manager/releases/tag/v0.1.0-alpha.1)
+contains the verified hosted build. Public distribution remains pending the gates below.
 
 Implemented in source: direct HTTP(S), validated segmented ranges, fallback for
 fresh downloads, strict resume identity, durable checkpoints, SQLite recovery,

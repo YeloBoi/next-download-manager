@@ -1,0 +1,51 @@
+name: Release existing private alpha build
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      BUILD_RUN_ID: '43959110412'
+      BUILD_SHA: 6bb723248160f921d2fa4fd3ac2964351b25ce09
+      RELEASE_TAG: v0.1.0-alpha.1
+    steps:
+      - name: Require private repository and successful matching Windows build
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GH_REPO" --jq .private)" = true
+          gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN_ID" > "$RUNNER_TEMP/build.json"
+          jq -e --arg sha "$BUILD_SHA" '.conclusion == "success" and .head_sha == $sha and .path == ".github/workflows/ci.yml" and .event == "push"' "$RUNNER_TEMP/build.json"
+          gh api "repos/$GH_REPO/contents/apps/desktop/src-tauri/tauri.conf.json?ref=$BUILD_SHA" --jq .content | base64 --decode > "$RUNNER_TEMP/tauri.json"
+          test "v$(jq -r .version "$RUNNER_TEMP/tauri.json")" = "$RELEASE_TAG"
+      - name: Retrieve existing artifacts on GitHub only
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: '43959110412'
+          pattern: ndm-*
+          merge-multiple: true
+          path: release-files
+      - name: Verify files and publish private pre-release
+        shell: bash
+        working-directory: release-files
+        run: |
+          set -euo pipefail
+          test "$(find . -maxdepth 1 -name '*.exe' | wc -l)" -eq 1
+          test -f NDM-0.1.0-alpha.1-windows-x64-portable.zip
+          test -f NDM-0.1.0-alpha.1-chromium.zip
+          test -f RELEASE_NOTES.md
+          test "$(wc -l < SHA256SUMS)" -eq 4
+          sha256sum --check --strict SHA256SUMS
+          cp RELEASE_NOTES.md "$RUNNER_TEMP/release-notes.md"
+          printf '\nPrivate owner-evaluation pre-release. Legal ownership and binary-use terms remain pending; do not make this release public before resolving them.\n\nBuilt and tested on GitHub: https://github.com/%s/actions/runs/%s\nSource tag matches commit `%s`.\n\n18 automated tests passed. Windows installer execution, interactive Persian/English UI and browser integration have not been manually verified. Binaries are unsigned.\n' "$GH_REPO" "$BUILD_RUN_ID" "$BUILD_SHA" >> "$RUNNER_TEMP/release-notes.md"
+          gh release create "$RELEASE_TAG" ./*.exe ./*.zip SHA256SUMS RELEASE_NOTES.md --target "$BUILD_SHA" --draft --prerelease --title "NDM $RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md"
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false

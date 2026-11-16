@@ -5,6 +5,7 @@
 /.artifacts/
 /.taste-skill/*/
 /apps/desktop/src-tauri/gen/
+/apps/desktop/src-tauri/tauri.ci.conf.json
 /.github-local/
 *.db
 *.db-shm

@@ -11,11 +11,16 @@ $bundleConfig = @{ bundle = @{ resources = @{
   '../../../scripts/Register-NativeHost.ps1' = 'Register-NativeHost.ps1'
   '../../../scripts/Unregister-NativeHost.ps1' = 'Unregister-NativeHost.ps1'
 } } } | ConvertTo-Json -Depth 5 -Compress
+$bundleConfigPath = Join-Path (Get-Location) 'apps/desktop/src-tauri/tauri.ci.conf.json'
+[IO.File]::WriteAllText($bundleConfigPath,$bundleConfig,[Text.UTF8Encoding]::new($false))
 Push-Location apps/desktop
 try {
-  & ../../node_modules/.bin/tauri.cmd build --config $bundleConfig
+  & ../../node_modules/.bin/tauri.cmd build --config src-tauri/tauri.ci.conf.json
   Assert-NativeExit
-} finally { Pop-Location }
+} finally {
+  Pop-Location
+  Remove-Item -LiteralPath $bundleConfigPath -ErrorAction SilentlyContinue
+}
 $portable = Join-Path $out 'portable'
 New-Item -ItemType Directory -Path $portable -Force | Out-Null
 Copy-Item target/release/ndm.exe,target/release/ndm-native-host.exe,scripts/Register-NativeHost.ps1,scripts/Unregister-NativeHost.ps1,README.md,LICENSE,THIRD_PARTY_NOTICES.md -Destination $portable

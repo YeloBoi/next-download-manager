@@ -16,10 +16,11 @@ No Rust test pass, full desktop build, installer success or UI screenshot was
 obtained locally. No more local builds/downloads are authorized; GitHub Actions
 is the execution environment going forward.
 
-The first hosted Windows run passed frontend checks/build, formatting and
-`cargo check --workspace --locked`. Its all-target Clippy step caught a missing
-type annotation in the shared HTTP fixture; that fixture was corrected for the
-next run. This is not yet a Rust test pass or a packaged desktop build.
+Hosted Windows validation on commit `00b70dd` passed frontend checks/build,
+`cargo fmt --all --check`, `cargo check --workspace --locked`, all-target Clippy
+with warnings denied, and `cargo test --workspace --locked`. The first run's
+missing fixture type annotation was corrected. Installer/portable packaging and
+the manual acceptance gates below still need their own successful result.
 
 Release gates still open:
 

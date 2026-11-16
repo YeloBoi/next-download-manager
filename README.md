@@ -3,6 +3,8 @@
 Windows 10/11 x64 direct-download manager. Development alpha; not a stable release.
 The Rust engine and SQLite queue are separate from the Tauri 2 / TypeScript UI.
 English is the default; Persian changes the layout to RTL and uses Vazirmatn.
+The successful hosted build and downloadable artifacts are recorded in
+[build evidence](docs/BUILD_REPORT.md).
 
 ## Builds on GitHub
 

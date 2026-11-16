@@ -9,25 +9,22 @@ live rate limit, SHA-256 comparison, unique destination names, English/Persian
 resources, themes/density, schedule for starting work, tray menu, explicit native
 messaging and unpacked extension, artifact and tag-gated release workflows.
 
-Local verification before owner stopped local builds: TypeScript and five Node
-tests passed; frontend production build passed after repairing npm optional
-dependencies. Rust workspace build failed because MSVC `link.exe` was unavailable.
-No Rust test pass, full desktop build, installer success or UI screenshot was
-obtained locally. No more local builds/downloads are authorized; GitHub Actions
-is the execution environment going forward.
+Hosted Windows validation on commit `6bb723248160f921d2fa4fd3ac2964351b25ce09`
+passed frontend checks/build, `cargo fmt --all --check`,
+`cargo check --workspace --locked`, all-target Clippy with warnings denied, and
+`cargo test --workspace --locked`: 13 Rust tests plus 5 Node tests. The release
+executable, NSIS installer, portable ZIP and extension ZIP were built and all
+four artifact uploads succeeded. See [build evidence](BUILD_REPORT.md).
 
-Hosted Windows validation on commit `00b70dd` passed frontend checks/build,
-`cargo fmt --all --check`, `cargo check --workspace --locked`, all-target Clippy
-with warnings denied, and `cargo test --workspace --locked` (13 Rust tests plus
-5 Node tests). Commit `2a57fb4` also built the release executable, NSIS installer,
-portable ZIP and extension ZIP successfully; its artifact upload failed. The
-workflow now explicitly includes files under the hidden output directory and
-uploads separate installer/portable/extension/checksum artifacts. Artifact upload
-and the manual acceptance gates below still need their own successful result.
+All ongoing dependency installation, compilation and packaging must take place
+on GitHub hosted runners at the owner's request. Do not build, install dependencies
+or download build artifacts on the owner's computer without a new request.
+Interactive desktop use, installation and real UI screenshots have not been
+validated by the hosted build.
 
 Release gates still open:
 
-- Hosted Windows checks and packaging must pass for the exact source commit.
+- Keep hosted Windows checks and packaging passing for future code changes.
 - Actual desktop English/Persian shaping, keyboard/accessibility, DPI, light/dark,
   resized windows, dialogs, tray and application shutdown must be exercised.
 - Clean-machine Windows 10/11 installer and uninstall tests, including extension
@@ -42,6 +39,6 @@ Release gates still open:
 - Rights-holder identity, binary-use terms, contribution terms, dependency license
   audit, provisional product-name check and digital signing remain unresolved.
 
-Next milestone: pass hosted checks, fix failures from runner logs, then verify the
-actual installer and real UI before creating a public pre-release. Do not label
-source implementation or a passing build as proof of those manual acceptance gates.
+Next milestone: verify the actual installer and real UI, widen fault/recovery
+coverage, and finalize ownership and distribution terms before a public pre-release.
+Do not label a passing build as proof of those manual acceptance gates.

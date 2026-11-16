@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "NDM — Next Download Manager",
+  "description": "Send direct file links to your local NDM desktop app, only when you choose.",
+  "version": "0.1.0",
+  "minimum_chrome_version": "116",
+  "default_locale": "en",
+  "permissions": ["contextMenus", "nativeMessaging", "storage", "activeTab", "scripting"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_title": "NDM", "default_popup": "popup.html" },
+  "content_security_policy": { "extension_pages": "script-src 'self'; object-src 'none'" }
+}

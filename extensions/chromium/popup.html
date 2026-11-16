@@ -1,0 +1,7 @@
+<!doctype html><html lang="en" dir="ltr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>NDM</title><link rel="stylesheet" href="popup.css"></head><body>
+<header><strong>NDM</strong><select id="language" aria-label="Language"><option value="en">English</option><option value="fa">فارسی</option></select></header>
+<h1 data-i18n="title">Send to NDM</h1><p id="connection" role="status"></p>
+<label for="urls" data-i18n="urls">Direct URLs, one per line</label><textarea id="urls" rows="4" dir="ltr" placeholder="https://example.com/file.zip"></textarea>
+<button id="extract" data-i18n="extract">Find links on this page</button><div id="links"></div>
+<p id="result" role="status"></p><footer><button id="queue" data-i18n="queue">Add to queue</button><button id="now" class="primary" data-i18n="now">Download now</button></footer>
+<p class="hint" data-i18n="hint">Only selected links are shared. NDM does not read your cookies or browsing history.</p><script type="module" src="popup.js"></script></body></html>

@@ -1,0 +1,19 @@
+[package]
+name = "ndm-queue"
+version.workspace = true
+edition.workspace = true
+license-file = "../../LICENSE"
+
+[dependencies]
+ndm-core = { path = "../download-core" }
+ndm-storage = { path = "../storage" }
+serde.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+uuid.workspace = true
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+axum = "0.8"
+futures-util = "0.3"

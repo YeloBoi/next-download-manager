@@ -1,0 +1,16 @@
+/target/
+/node_modules/
+/apps/desktop/dist/
+/.tools/
+/.artifacts/
+/.taste-skill/*/
+/apps/desktop/src-tauri/gen/
+/.github-local/
+*.db
+*.db-shm
+*.db-wal
+*.part
+*.log
+.env
+.env.*
+!.env.example

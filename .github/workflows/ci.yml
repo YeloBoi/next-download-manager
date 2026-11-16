@@ -1,0 +1,40 @@
+name: Windows checks and build
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: npm ci --include=optional
+      - run: npm run check
+      - run: npm run build
+      - run: cargo fmt --all --check
+      - run: cargo check --workspace --locked
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo test --workspace --locked
+      - name: Build Windows installer and portable archive
+        run: ./scripts/Build-Artifacts.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ndm-windows-x64-alpha
+          path: .artifacts/*
+          if-no-files-found: error
+          retention-days: 14

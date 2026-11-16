@@ -36,7 +36,11 @@ impl Drop for Server {
 }
 impl Server {
     pub async fn start() -> Self {
-        let data = Arc::new((0..2 * 1024 * 1024).map(|n| (n % 251) as u8).collect());
+        let data = Arc::new(
+            (0..2 * 1024 * 1024)
+                .map(|n| (n % 251) as u8)
+                .collect::<Vec<u8>>(),
+        );
         let version = Arc::new(AtomicUsize::new(1));
         let requests = Arc::new(Mutex::new(Vec::new()));
         let fixture = Fixture {

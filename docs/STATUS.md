@@ -16,6 +16,11 @@ No Rust test pass, full desktop build, installer success or UI screenshot was
 obtained locally. No more local builds/downloads are authorized; GitHub Actions
 is the execution environment going forward.
 
+The first hosted Windows run passed frontend checks/build, formatting and
+`cargo check --workspace --locked`. Its all-target Clippy step caught a missing
+type annotation in the shared HTTP fixture; that fixture was corrected for the
+next run. This is not yet a Rust test pass or a packaged desktop build.
+
 Release gates still open:
 
 - Hosted Windows checks and packaging must pass for the exact source commit.

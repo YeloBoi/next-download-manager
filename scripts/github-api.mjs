@@ -17,9 +17,19 @@ const response = await fetch(`https://api.github.com${path}`, {
   method, headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${fields.password}`,
     'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json' }, body,
 });
-const result = await response.json().catch(() => ({}));
+const content = await response.text();
+if (response.ok && path.endsWith('/logs')) {
+  const lines = content.split(/\r?\n/);
+  const errors = lines.flatMap((line,index) => /error(?:\[|:)|warning:|panicked|FAILED|Exception|Cannot find/i.test(line)
+    ? lines.slice(Math.max(0,index-2),Math.min(lines.length,index+9)) : []);
+  console.log((errors.length ? [...new Set(errors)] : lines.slice(-50)).join('\n'));
+  process.exit(0);
+}
+let result;
+try { result = JSON.parse(content); } catch { result = {}; }
 if (!response.ok) throw new Error(`GitHub ${response.status}: ${result.message || 'Request failed'}`);
 if (path === '/user') console.log(JSON.stringify({ login: result.login, id: result.id }));
 else if (result.full_name) console.log(JSON.stringify({ name: result.full_name, url: result.html_url, private: result.private }));
 else if (result.workflow_runs) console.log(JSON.stringify(result.workflow_runs.map(run => ({ id: run.id, name: run.name, status: run.status, conclusion: run.conclusion, url: run.html_url, sha: run.head_sha }))));
+else if (result.jobs) console.log(JSON.stringify(result.jobs.map(job => ({ id: job.id, status: job.status, conclusion: job.conclusion, steps: job.steps.map(step => ({ name: step.name, status: step.status, conclusion: step.conclusion })) }))));
 else console.log(JSON.stringify(result));

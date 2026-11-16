@@ -18,9 +18,12 @@ is the execution environment going forward.
 
 Hosted Windows validation on commit `00b70dd` passed frontend checks/build,
 `cargo fmt --all --check`, `cargo check --workspace --locked`, all-target Clippy
-with warnings denied, and `cargo test --workspace --locked`. The first run's
-missing fixture type annotation was corrected. Installer/portable packaging and
-the manual acceptance gates below still need their own successful result.
+with warnings denied, and `cargo test --workspace --locked` (13 Rust tests plus
+5 Node tests). Commit `2a57fb4` also built the release executable, NSIS installer,
+portable ZIP and extension ZIP successfully; its artifact upload failed. The
+workflow now explicitly includes files under the hidden output directory and
+uploads separate installer/portable/extension/checksum artifacts. Artifact upload
+and the manual acceptance gates below still need their own successful result.
 
 Release gates still open:
 

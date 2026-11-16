@@ -36,7 +36,31 @@ jobs:
         run: ./scripts/Build-Artifacts.ps1
       - uses: actions/upload-artifact@v4
         with:
-          name: ndm-windows-x64-alpha
-          path: .artifacts/*
+          name: ndm-installer-windows-x64
+          path: .artifacts/*.exe
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ndm-portable-windows-x64
+          path: .artifacts/*portable.zip
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ndm-chromium-extension
+          path: .artifacts/*chromium.zip
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ndm-checksums-and-notes
+          path: |
+            .artifacts/SHA256SUMS
+            .artifacts/RELEASE_NOTES.md
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 14

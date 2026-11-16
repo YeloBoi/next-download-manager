@@ -20,7 +20,7 @@ const response = await fetch(`https://api.github.com${path}`, {
 const content = await response.text();
 if (response.ok && path.endsWith('/logs')) {
   const lines = content.split(/\r?\n/);
-  const errors = lines.flatMap((line,index) => /error(?:\[|:)|warning:|panicked|FAILED|Exception|Cannot find/i.test(line)
+  const errors = lines.flatMap((line,index) => /\berror(?:\[|:)|##\[error\]|panicked|test .*FAILED|test result: FAILED|Exception|Cannot find/i.test(line)
     ? lines.slice(Math.max(0,index-2),Math.min(lines.length,index+9)) : []);
   console.log((errors.length ? [...new Set(errors)] : lines.slice(-50)).join('\n'));
   process.exit(0);

@@ -24,6 +24,7 @@ try {
 $portable = Join-Path $out 'portable'
 New-Item -ItemType Directory -Path $portable -Force | Out-Null
 Copy-Item target/release/ndm.exe,target/release/ndm-native-host.exe,scripts/Register-NativeHost.ps1,scripts/Unregister-NativeHost.ps1,README.md,LICENSE,THIRD_PARTY_NOTICES.md -Destination $portable
+Copy-Item docs -Destination (Join-Path $portable 'docs') -Recurse -Force
 Compress-Archive -Path "$portable/*" -DestinationPath "$out/NDM-$version-windows-x64-portable.zip" -Force
 Copy-Item target/release/bundle/nsis/*.exe -Destination $out
 Compress-Archive -Path extensions/chromium/* -DestinationPath "$out/NDM-$version-chromium.zip" -Force

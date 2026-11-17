@@ -65,7 +65,7 @@ function shell() {
       <div class="nav-caption">${e(t('local'))}</div>
       <nav>${filters.map(([key,glyph]) => `<button data-filter="${key}" class="nav-item ${!settingsView&&filter===key?'current':''}" ${!settingsView&&filter===key?'aria-current="page"':''}>${icon(glyph)}<span>${e(t(key as Key))}</span><span class="nav-count">${countFor(key)}</span></button>`).join('')}</nav>
       <div class="sidebar-bottom">
-        <section class="extension-note" id="browser-connection" aria-label="${e(t('extension'))}">${extensionMarkup()}</section>
+        <section class="extension-note" id="browser-connection" aria-label="${e(t('extension'))}" ${browserConnection.connected?'hidden':''}>${extensionMarkup()}</section>
         <button class="nav-item ${settingsView?'current':''}" data-action="settings">${icon('settings')}<span>${e(t('settings'))}</span></button>
         <div class="build-label"><span>${e(t('version'))}</span><span class="local-indicator">${icon('folder')}</span></div>
       </div>
@@ -197,9 +197,10 @@ function toast(message:string) {
   clearTimeout(toastTimer);toastTimer=setTimeout(()=>target.hidden=true,5000);
 }
 function extensionMarkup() {
-  const title:Key=browserConnection.connected?'browserConnected':browserConnection.seen?'browserDisconnected':'connectBrowser';
-  const hint:Key=browserConnection.connected?'browserReady':browserConnection.seen?'browserReconnect':'browserIntro';
-  return `${icon(browserConnection.connected?'check':'link')}<div><strong>${e(t(title))}</strong><small>${e(t(hint))}</small><div class="extension-actions">${button('extension-guide',browserConnection.connected?'manageExtension':browserConnection.seen?'setupGuide':'getExtension',undefined,!native?'disabled':'')}${button('check-browser',checkingBrowser?'checkingBrowser':'checkBrowser',undefined,!native||checkingBrowser?'disabled':'')}</div></div>`;
+  if(browserConnection.connected)return '';
+  const title:Key=browserConnection.seen?'browserDisconnected':'connectBrowser';
+  const hint:Key=browserConnection.seen?'browserReconnect':'browserIntro';
+  return `${icon('link')}<div><strong>${e(t(title))}</strong><small>${e(t(hint))}</small><div class="extension-actions">${button('extension-guide',browserConnection.seen?'setupGuide':'getExtension',undefined,!native?'disabled':'')}${button('check-browser',checkingBrowser?'checkingBrowser':'checkBrowser',undefined,!native||checkingBrowser?'disabled':'')}</div></div>`;
 }
 async function checkBrowser(manual=false) {
   if(!native||checkingBrowser)return;
@@ -214,10 +215,10 @@ async function checkBrowser(manual=false) {
   finally {
     checkingBrowser=false;
     if(previous.seen!==browserConnection.seen||previous.connected!==browserConnection.connected){
-      const card=document.querySelector('#browser-connection');
+      const card=document.querySelector<HTMLElement>('#browser-connection');
       const focusedAction=(document.activeElement as HTMLElement)?.dataset.action;
-      if(card)card.innerHTML=extensionMarkup();
-      if(focusedAction==='check-browser'||focusedAction==='extension-guide')document.querySelector<HTMLButtonElement>(`[data-action="${focusedAction}"]`)?.focus();
+      if(card){card.hidden=browserConnection.connected;card.innerHTML=extensionMarkup();}
+      if(!browserConnection.connected&&(focusedAction==='check-browser'||focusedAction==='extension-guide'))document.querySelector<HTMLButtonElement>(`[data-action="${focusedAction}"]`)?.focus();
     }
     setButton();
   }

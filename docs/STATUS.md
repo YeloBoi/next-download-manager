@@ -1,5 +1,7 @@
 # Acceptance status
 
+Alpha.6 changes browser delivery to show/restore NDM and separates desktop process lifetime from Firefox's native-host job. The connection card is hidden while connected and returns on disconnect. New hosted acceptance covers real release-executable downloads after native job teardown; build evidence is recorded after CI/publication. Older sections below describe historical milestones.
+
 Alpha.5 is GitHub Latest. Firefox registration is automatic on NDM startup;
 the background native port survives popup closure and reconnects automatically.
 Check repairs registration without replacing its button during each click.

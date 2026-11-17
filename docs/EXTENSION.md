@@ -60,8 +60,11 @@ Each registration currently replaces the previous allowed ID.
    Failed sends remain for retry; only acknowledged links leave the selection.
 
 The host launches only the sibling desktop executable on an explicit add request;
-background connection checks never launch it. Browser delivery avoids focusing an
-already running instance. A failure leaves normal browser downloads intact.
+background connection checks never launch it. Explicit browser downloads show or
+restore the existing window. On Windows the desktop breaks away from the browser
+native-host job, so acknowledging a link does not terminate NDM or its download.
+The connection card is hidden while connected and returns on disconnection.
+A failure leaves normal browser downloads intact.
 Native messages have version, freshness, size,
 URL and batch validation. The native host exchanges bounded spool files with the
 desktop in the current user's `%LOCALAPPDATA%\NDM\bridge` directory; it opens no

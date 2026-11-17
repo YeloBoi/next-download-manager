@@ -1,3 +1,15 @@
+# NDM 0.1.0-alpha.6 - Browser downloads open and survive Firefox replies
+
+- Fix Windows native-host child lifetime: the desktop uses CREATE_BREAKAWAY_FROM_JOB so Firefox closing a one-shot native message cannot kill NDM and its download.
+- Explicit browser download requests show and restore the desktop, including an already running hidden/minimized instance. Background probes still never launch NDM.
+- Hide the entire browser connection card while connected; show setup/reconnect controls again when disconnected.
+- Hosted Windows acceptance now launches the actual packaged desktop/native executables under a Firefox-style job, sends cold/warm downloads, kills the native job immediately after acknowledgment, verifies a visible single desktop and SHA-256 of real HTTP downloads.
+- Hosted Edge checks connection-card hide/reappearance across polling and settings redraw. Firefox checks the actual Download all button sends start=true and clears acknowledged links.
+- Update the desktop app to alpha.6. Extension 0.1.5 is included; Firefox remains an unsigned temporary add-on.
+- An explicitly paused/stopped queue still requires Start queue. Clean-machine installer and combined installed Windows Firefox acceptance remain manual.
+
+Previous release notes (historical behavior):
+
 # NDM 0.1.0-alpha.5 - Automatic Firefox connection
 
 - Open the updated NDM app once: Firefox native-host registration is automatic. No manual PowerShell command or extension ID is needed.

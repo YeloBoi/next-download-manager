@@ -41,6 +41,8 @@ jobs:
       - name: Check automatic Firefox registration and persistent native messages on hosted Windows
         run: cargo test -p ndm-browser-bridge --test native_connection --locked -- --ignored
       - run: ./scripts/Build-Artifacts.ps1
+      - name: Check real desktop cold and connected browser downloads on hosted Windows
+        run: node scripts/Check-Browser-Download.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: release-files

@@ -34,9 +34,10 @@ with tempfile.TemporaryDirectory() as temporary:
     # This fixture owns only a hosted runner's fake desktop host, never a user profile.
     assert os.environ.get('GITHUB_ACTIONS') == 'true'
     online = root / 'desktop-online'
+    accept_add = root / 'accept-add'
     native_log = root / 'native-messages.jsonl'
     host = root / 'ndm-fixture.py'
-    host.write_text(f'#!{sys.executable}\nONLINE = {str(online)!r}\nLOG = {str(native_log)!r}\n' + '''
+    host.write_text(f'#!{sys.executable}\nONLINE = {str(online)!r}\nACCEPT_ADD = {str(accept_add)!r}\nLOG = {str(native_log)!r}\n' + '''
 import json, os, pathlib, struct, sys
 while True:
     header = sys.stdin.buffer.read(4)
@@ -44,9 +45,9 @@ while True:
     size = struct.unpack('<I', header)[0]
     if size > 256 * 1024: break
     message = json.loads(sys.stdin.buffer.read(size))
-    accepted = message['kind'] == 'ping' and pathlib.Path(ONLINE).exists()
+    accepted = pathlib.Path(ONLINE).exists() and (message['kind'] == 'ping' or pathlib.Path(ACCEPT_ADD).exists())
     with open(LOG, 'a') as log:
-        log.write(json.dumps({'accepted': accepted, 'kind': message['kind'], 'pid': os.getpid()}) + '\\n')
+        log.write(json.dumps({'accepted': accepted, 'kind': message['kind'], 'start': message['start'], 'urls': message['urls'], 'pid': os.getpid()}) + '\\n')
     response = json.dumps({'version': 1, 'request_id': message['request_id'], 'accepted': accepted}).encode()
     sys.stdout.buffer.write(struct.pack('<I', len(response)) + response)
     sys.stdout.buffer.flush()
@@ -96,9 +97,16 @@ while True:
         wait.until(lambda _: any(row['accepted'] and row['pid'] != background_pid for row in messages()))
         driver.get(popup)
         wait.until(lambda d: d.find_element(By.ID, 'connection').text == 'Desktop connected')
+        accept_add.touch()
+        driver.find_element(By.ID, 'now').click()
+        wait.until(lambda d: 'Accepted by NDM' in d.find_element(By.ID, 'result').text)
+        assert not driver.find_elements(By.CSS_SELECTOR, '#selection li')
+        sent = [row for row in messages() if row['kind'] == 'add' and row['accepted']]
+        assert sent[-1]['start'] is True
+        assert sent[-1]['urls'] == ['https://example.com/ndm-firefox-test.zip']
         Select(driver.find_element(By.ID, 'language')).select_by_value('fa')
         wait.until(lambda d: d.find_element(By.TAG_NAME, 'html').get_attribute('dir') == 'rtl')
-        print('Firefox passed: automatic connection without popup; popup unload preserves native port; desktop restart and killed host recover automatically; selection, failed send retention and Persian RTL.')
+        print('Firefox passed: automatic connection without popup; background recovery; failed send retention; Download all sends exact URLs with start=true and clears only acknowledged selection; Persian RTL.')
     finally:
         if driver: driver.quit()
         native_manifest.unlink(missing_ok=True)

@@ -151,11 +151,9 @@ async fn export_links(app: tauri::AppHandle, manager: State<'_, Manager>) -> Res
 
 fn main() {
     let result = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, args, _| {
-            if args.iter().any(|arg| arg == "--browser-request") {
-                return;
-            }
+        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
                 let _ = window.show();
                 let _ = window.set_focus();
             }
@@ -237,11 +235,6 @@ fn main() {
                 _ => {}
             })
             .build(app)?;
-            if std::env::args().any(|arg| arg == "--browser-request") {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.hide();
-                }
-            }
             Ok(())
         })
         .on_window_event(|window, event| {

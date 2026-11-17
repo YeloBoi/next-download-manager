@@ -1,4 +1,4 @@
-// Browser smoke checks run only on GitHub; native Windows interactions remain manual.
+// Browser smoke checks run only on GitHub; the Tauri IPC fixture exercises UI state.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
@@ -56,8 +56,39 @@ try {
     await page.setViewportSize({width,height:900});
     await check();
   }
+  const desktop=await browser.newPage();
+  desktop.on('pageerror',error=>errors.push(error.message));
+  await desktop.addInitScript(()=>{
+    window.isTauri=true;
+    window.ndmTestConnection={seen:false,connected:false};
+    window.__TAURI_INTERNALS__={
+      metadata:{currentWindow:{label:'main'}},
+      transformCallback:()=>1,
+      invoke:async(command)=>{
+        if(command==='browser_connection')return {...window.ndmTestConnection};
+        if(command==='snapshot')return {downloads:[],running:false,draining:false,settings:{directory:'C:\\Downloads',language:'en',theme:'dark',compact:false,concurrent_downloads:1,connections_per_file:1,global_connections:16,host_connections:8,speed_limit:0,resume_on_launch:false,stop_on_error:false,schedule_enabled:false,schedule_start:0,schedule_end:0,close_to_tray:false}};
+        if(command==='plugin:event|listen')return 1;
+        if(command==='plugin:window|is_maximized')return false;
+        throw new Error(`Unexpected desktop fixture command: ${command}`);
+      },
+    };
+  });
+  await desktop.goto('http://127.0.0.1:4173');
+  await desktop.locator('[data-action="check-browser"]:enabled').waitFor();
+  await desktop.evaluate(()=>{window.ndmTestConnection={seen:true,connected:true};});
+  await desktop.locator('[data-action="check-browser"]').click();
+  await desktop.locator('#browser-connection').waitFor({state:'hidden'});
+  assert.equal(await desktop.locator('#browser-connection').innerText(),'','Connected card content is removed');
+  await desktop.locator('[data-action="settings"]').click();
+  await desktop.locator('#browser-connection').waitFor({state:'hidden'});
+  await desktop.evaluate(()=>{window.ndmTestConnection={seen:true,connected:false};});
+  await desktop.locator('#browser-connection').waitFor({state:'visible'});
+  await desktop.locator('[data-action="check-browser"]:enabled').waitFor();
+  await desktop.evaluate(()=>{window.ndmTestConnection={seen:true,connected:true};});
+  await desktop.locator('#browser-connection').waitFor({state:'hidden'});
+  await desktop.close();
   assert.deepEqual(errors,[],'UI must not raise runtime errors');
-  console.log('UI smoke checks passed: real assets, rounded frame, window control layout, English/Persian, theme, dialog and 3 viewport widths.');
+  console.log('UI smoke checks passed: assets, rounded frame, English/Persian, theme, dialog, 3 viewport widths, connection card hides on connect and returns on disconnect.');
 } finally {
   await browser?.close();
   server.kill();

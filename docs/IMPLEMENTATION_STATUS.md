@@ -1,5 +1,7 @@
 # Implementation status
 
+Alpha.6 changes browser delivery to show/restore NDM and separates desktop process lifetime from Firefox's native-host job. The connection card is hidden while connected and returns on disconnect. New hosted acceptance covers real release-executable downloads after native job teardown; build evidence is recorded after CI/publication. Older sections below describe historical milestones.
+
 ## Automatic Firefox connection follow-up (alpha.5)
 
 Verified in hosted component/integration checks: app-startup Firefox registration,

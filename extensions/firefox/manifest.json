@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "NDM — Next Download Manager",
   "description": "Send direct file links to your local NDM desktop app, only when you choose.",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "default_locale": "en",
   "permissions": [
     "contextMenus",

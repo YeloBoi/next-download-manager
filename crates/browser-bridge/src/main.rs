@@ -71,7 +71,11 @@ async fn run() -> Result<(), String> {
         let desktop = std::env::current_exe()
             .map_err(|e| e.to_string())?
             .with_file_name("ndm.exe");
-        if let Err(error) = tokio::process::Command::new(desktop)
+        let mut command = tokio::process::Command::new(desktop);
+        // Firefox kills its native-host job after a one-shot reply; NDM must outlive it.
+        #[cfg(windows)]
+        command.creation_flags(0x01000000); // CREATE_BREAKAWAY_FROM_JOB
+        if let Err(error) = command
             .arg("--browser-request")
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())

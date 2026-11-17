@@ -1,5 +1,39 @@
 # Hosted Windows build evidence
 
+## 0.1.0-alpha.5 automatic Firefox connection
+
+- Source/tag: `a871252dc7908d160f5b2d5783781032f637dd44` / `v0.1.0-alpha.5`.
+- Successful CI: https://github.com/YeloBoi/next-download-manager/actions/runs/44110216010
+- Successful tagged checks/build/publication: https://github.com/YeloBoi/next-download-manager/actions/runs/44111011205
+- Passed: TypeScript, 13 Node tests, frontend build, bilingual hosted Edge UI smoke,
+  Rust fmt/check/warnings-denied all-target Clippy and 17 existing Rust tests.
+- A separate hosted Windows integration test also passed: automatic HKCU Firefox
+  registration, real native-host executable, offline reply without a desktop,
+  reconnection to the real queue/bridge service on the same port and repeated pings.
+  It is ignored in ordinary cargo test and explicitly run only on GitHub Windows.
+- Actual hosted Firefox passed: initial automatic handshake without any popup,
+  popup unload for 35 seconds, continued same native process, offline/online recovery,
+  killed-host reconnection, persisted selection, failed send retention and Persian RTL.
+  This browser test uses a native-host fixture; the Windows test uses the real host
+  and queue service. The combined installed Windows Firefox/Tauri UI remains manual.
+- Firefox auto registration runs on app startup. Check repairs it. A background-owned
+  native port probes every five seconds; desktop freshness expires after 15 seconds.
+- Both desktop and extension must be updated together; Mozilla signing remains pending.
+- Windows installer/portable and both extension ZIPs built; release publisher verified
+  SHA256SUMS before upload. Latest release ID `448814565` has 8 assets.
+
+| Alpha 5 release asset | Bytes |
+| --- | ---: |
+| NDM-0.1.0-alpha.5-chromium.zip | 38,831 |
+| NDM-0.1.0-alpha.5-firefox.zip | 38,893 |
+| NDM-0.1.0-alpha.5-windows-x64-portable.zip | 9,313,871 |
+| NDM_0.1.0-alpha.5_x64-setup.exe | 5,414,997 |
+| preview-en-dark.png | 81,313 |
+| preview-fa-light.png | 76,035 |
+| RELEASE_NOTES.md | 3,771 |
+| SHA256SUMS | 663 |
+
+
 ## 0.1.0-alpha.4 Firefox compatibility
 
 - Source/tag: `574cd20ce1244e5e790eb097ef0c82ef2783ea0c` / `v0.1.0-alpha.4`.

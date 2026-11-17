@@ -86,7 +86,7 @@ If connection fails, check the extension ID matches, the host and sibling app ex
 and the HKCU native-host manifest points to the installed executable. Neither
 Chrome Web Store nor Edge Add-ons publication has been performed.
 
-This is an unpacked development extension. Automatic native-host registration,
+This is an unsigned development extension. Automatic Chrome/Edge ID registration,
 visual/Shift selection, groups, filters, Save for later, source-page metadata and
 per-download completion notifications remain in the [implementation ledger](IMPLEMENTATION_STATUS.md).
 Retries deduplicate URLs still in the queue/history. There is no durable request-ID

@@ -1,5 +1,18 @@
 # Implementation status
 
+## Automatic Firefox connection follow-up (alpha.5)
+
+Verified in hosted component/integration checks: app-startup Firefox registration,
+repair on Check, background-owned persistent native port, five-second retry/probes,
+popup-independent status, fifteen-second desktop expiry and stable Check button.
+Actual hosted Firefox tested no-popup startup, popup unload, desktop availability
+changes and a killed native host. Hosted Windows tested automatic registry setup
+and the real host exchanging repeated messages with the queue/bridge service.
+See [build evidence](BUILD_REPORT.md). Chrome/Edge ID registration remains explicit;
+combined installed Windows Firefox/Tauri acceptance and Mozilla signing remain open.
+The older milestones below are historical baselines, not the current connection design.
+
+
 ## Firefox compatibility follow-up (alpha.4)
 
 Verified within the hosted checks: separate Firefox manifest/package, fixed add-on

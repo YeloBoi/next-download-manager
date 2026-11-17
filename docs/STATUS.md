@@ -1,5 +1,15 @@
 # Acceptance status
 
+Alpha.5 is GitHub Latest. Firefox registration is automatic on NDM startup;
+the background native port survives popup closure and reconnects automatically.
+Check repairs registration without replacing its button during each click.
+Hosted Firefox recovery tests and a real Windows native-host/queue integration test
+passed alongside 13 Node and 17 existing Rust tests and all Windows packages.
+Update both app and extension. Installed Windows Firefox/Tauri acceptance and
+permanent Mozilla signing remain open. See [evidence](BUILD_REPORT.md).
+The older sections below retain release history.
+
+
 Alpha.4 fixes Firefox compatibility and is published as GitHub Latest.
 The separate firefox.zip uses module background scripts and native Firefox APIs;
 the updated native host supports Firefox registration. Hosted Firefox installation

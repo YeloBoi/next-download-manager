@@ -10,9 +10,9 @@ The successful hosted build and downloadable artifacts are recorded in
 
 ## Builds on GitHub
 
-Download the [v0.1.0-alpha.2 pre-release](https://github.com/YeloBoi/next-download-manager/releases/tag/v0.1.0-alpha.2)
+Download the [latest release](https://github.com/YeloBoi/next-download-manager/releases/latest)
 from **Releases → Assets**. For installation, choose
-`NDM_0.1.0-alpha.2_x64-setup.exe`. The portable ZIP, Chromium extension,
+the Windows x64 `*-setup.exe` installer. The portable ZIP, Chromium extension,
 SHA256SUMS and release notes are separate assets.
 
 All dependency installation, Rust compilation, tests and packaging run in

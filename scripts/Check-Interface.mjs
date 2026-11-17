@@ -48,7 +48,7 @@ try {
   await page.getByRole('button',{name:'افزودن نخستین لینک',exact:true}).click();
   await page.locator('dialog[open]').waitFor();
   assert.equal(await page.locator('textarea[name="urls"]').getAttribute('dir'),'ltr');
-  await page.locator('[data-action="close-add"]').click();
+  await page.getByRole('dialog').getByRole('button',{name:'بستن',exact:true}).click();
   for(const width of [1440,768,390]) {
     await page.setViewportSize({width,height:900});
     await check();

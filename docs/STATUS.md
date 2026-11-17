@@ -1,5 +1,15 @@
 # Acceptance status
 
+Alpha.4 fixes Firefox compatibility and is published as GitHub Latest.
+The separate firefox.zip uses module background scripts and native Firefox APIs;
+the updated native host supports Firefox registration. Hosted Firefox installation
+and popup behavior passed alongside Windows checks (10 Node and 17 Rust tests).
+Firefox 140+ is required; installation is temporary until Mozilla signing.
+Actual installed Windows Firefox/native delivery remains manual acceptance.
+See [build evidence](BUILD_REPORT.md) and [Persian Firefox setup](EXTENSION.fa.md).
+The alpha.3 and alpha.2 sections below retain earlier evidence.
+
+
 Alpha.3 browser integration is implemented, hosted checks and packages passed,
 and seven release files are public at [Latest](https://github.com/YeloBoi/next-download-manager/releases/latest).
 This includes 16 Rust tests, 8 Node tests and bilingual desktop UI smoke checks.

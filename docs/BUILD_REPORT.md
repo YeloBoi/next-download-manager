@@ -1,5 +1,34 @@
 # Hosted Windows build evidence
 
+## 0.1.0-alpha.4 Firefox compatibility
+
+- Source/tag: `574cd20ce1244e5e790eb097ef0c82ef2783ea0c` / `v0.1.0-alpha.4`.
+- Successful Windows and Firefox CI: https://github.com/YeloBoi/next-download-manager/actions/runs/44104288158
+- Successful tagged build/publication: https://github.com/YeloBoi/next-download-manager/actions/runs/44104487055
+- Windows: TypeScript, 10 Node tests, frontend build, hosted Edge UI smoke checks,
+  Rust fmt/check/warnings-denied Clippy, 17 Rust tests, native host, desktop,
+  NSIS installer, portable ZIP and both browser extension ZIPs passed.
+- Hosted Linux Firefox: Mozilla manifest lint had zero errors; one warning is
+  Android-only minimum-version compatibility (NDM targets Windows desktop).
+  Actual temporary installation, module background startup, saved selection across
+  popup reload, retention after failed native delivery and Persian RTL passed.
+- Native-host caller tests reject wrong Firefox manifest paths and add-on IDs.
+  An installed Windows Firefox-to-native connection, cold launch, clean installer
+  and permanent Mozilla signing remain unverified/not performed.
+- Latest release ID: `448765943`; 8 published assets.
+
+| Alpha 4 release asset | Bytes |
+| --- | ---: |
+| NDM-0.1.0-alpha.4-chromium.zip | 37,800 |
+| NDM-0.1.0-alpha.4-firefox.zip | 37,862 |
+| NDM-0.1.0-alpha.4-windows-x64-portable.zip | 9,294,040 |
+| NDM_0.1.0-alpha.4_x64-setup.exe | 5,409,475 |
+| preview-en-dark.png | 80,764 |
+| preview-fa-light.png | 74,979 |
+| RELEASE_NOTES.md | 2,830 |
+| SHA256SUMS | 663 |
+
+
 ## 0.1.0-alpha.3 browser integration milestone
 
 - Source/tag: `bf04b0262daa07f971e5bf06261f394dfa5c73ed` / `v0.1.0-alpha.3`.

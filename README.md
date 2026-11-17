@@ -18,7 +18,7 @@ SHA256SUMS and release notes are separate assets.
 All dependency installation, Rust compilation, tests and packaging run in
 **GitHub Actions → Windows checks and build**. No local build is required.
 After a successful run, choose only the artifact you need: `ndm-installer-windows-x64`,
-`ndm-portable-windows-x64`, `ndm-chromium-extension` or `ndm-checksums-and-notes`.
+`ndm-portable-windows-x64`, `ndm-chromium-extension`, `ndm-firefox-extension` or `ndm-checksums-and-notes`.
 Installer and portable downloads are separated to avoid downloading both binaries.
 Unsigned alpha binaries may trigger Windows reputation warnings; no code-signing
 certificate is configured. Keep Windows security protections enabled.

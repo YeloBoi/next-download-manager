@@ -1,5 +1,17 @@
 # Implementation status
 
+## Firefox compatibility follow-up (alpha.4)
+
+Verified within the hosted checks: separate Firefox manifest/package, fixed add-on
+ID, native Firefox Promise APIs and Firefox caller validation. Hosted Firefox
+installed the unsigned extension temporarily and exercised selection persistence,
+failed-send retention and Persian RTL. Windows checks/build and checksum-verified
+Latest publication also passed. See [build evidence](BUILD_REPORT.md).
+Native-host registration is explicit via -Browser Firefox. Windows Firefox/native
+end-to-end acceptance and permanent Mozilla signing remain open. The alpha.3
+milestone below describes the previous baseline; advanced product work is unchanged.
+
+
 The full Persian brief is preserved in [PRODUCT_REQUIREMENTS.fa.md](PRODUCT_REQUIREMENTS.fa.md).
 This is an incremental implementation of that brief, not a claim that NDM is complete.
 Status vocabulary: **Not started**, **In progress**, **Implemented** (source exists),

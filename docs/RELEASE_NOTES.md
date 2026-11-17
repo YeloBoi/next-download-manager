@@ -1,4 +1,4 @@
-# NDM 0.1.0-alpha.4 ? Firefox compatibility fix
+# NDM 0.1.0-alpha.4 - Firefox compatibility fix
 
 - Separate **firefox.zip** with module background scripts, fixing the disabled background.service_worker error.
 - Native Firefox Promise APIs, fixed add-on identity and native-host registration via -Browser Firefox.

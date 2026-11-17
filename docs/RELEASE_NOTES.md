@@ -1,3 +1,14 @@
+# NDM 0.1.0-alpha.5 - Automatic Firefox connection
+
+- Open the updated NDM app once: Firefox native-host registration is automatic. No manual PowerShell command or extension ID is needed.
+- A background-owned persistent native port replaces popup-owned checks. Closing the popup no longer disconnects the browser; five-second probes recover after desktop/host restarts.
+- Check connection repairs Firefox registration and keeps its button stable. Desktop status refreshes automatically; no repeated popup-opening instruction.
+- Update both the desktop app and Firefox extension. Keep ndm-native-host.exe beside ndm.exe. Chrome/Edge still need their explicit extension-ID registration.
+- Hosted tests exercise real Firefox background recovery without a popup, and real Windows registration/native protocol with the queue service.
+- Firefox remains an unsigned temporary add-on; permanent Mozilla signing is pending.
+
+Previous release notes:
+
 # NDM 0.1.0-alpha.4 - Firefox compatibility fix
 
 - Separate **firefox.zip** with module background scripts, fixing the disabled background.service_worker error.

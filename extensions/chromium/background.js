@@ -2,6 +2,9 @@ import { extensionApi } from './api.js';
 const api = extensionApi();
 import { request, sendNative, validateUrls } from './protocol.js';
 import { mergeSelection, changeSelection } from './selection.js';
+import { createConnection } from './connection.js';
+
+export const connection = createConnection(api);
 
 let mutations = Promise.resolve();
 function serialize(action) {
@@ -32,9 +35,6 @@ async function send(urls, start) {
     throw new Error('NDM did not acknowledge these links. They are saved; open NDM, check setup and retry.');
   }
 }
-async function heartbeat() {
-  try { await sendNative(request('ping')); } catch { /* A closed app is not an uninstalled extension. */ }
-}
 async function setup() {
   const { language = 'en' } = await api.storage.local.get('language');
   await api.contextMenus.removeAll();
@@ -44,12 +44,12 @@ async function setup() {
   ]) api.contextMenus.create({ id, title: language === 'fa' ? fa : en, contexts: ['link', 'video', 'audio'], targetUrlPatterns: ['http://*/*', 'https://*/*'] });
   await save(await selection());
   await api.alarms.create('ndm-connection', { periodInMinutes: 1 });
-  void heartbeat();
+  connection.start();
 }
 api.runtime.onInstalled.addListener(() => { void serialize(setup); });
 api.runtime.onStartup.addListener(() => { void serialize(setup); });
 api.storage.onChanged.addListener(changes => { if (changes.language) void serialize(setup); });
-api.alarms.onAlarm.addListener(alarm => { if (alarm.name === 'ndm-connection') void heartbeat(); });
+api.alarms.onAlarm.addListener(alarm => { if (alarm.name === 'ndm-connection') connection.start(); });
 api.contextMenus.onClicked.addListener(info => {
   void serialize(async () => {
     const urls = validateUrls([info.linkUrl || info.srcUrl]);
@@ -63,6 +63,10 @@ api.contextMenus.onClicked.addListener(info => {
 });
 api.runtime.onMessage.addListener((message, sender, reply) => {
   if (sender.id !== api.runtime.id || !sender.url?.startsWith(api.runtime.getURL(''))) return;
+  if (message?.type === 'connection') {
+    void connection.check().then(reply);
+    return true;
+  }
   if (message?.type !== 'selection') return;
   void serialize(async () => {
     let urls = await selection();
@@ -76,3 +80,4 @@ api.runtime.onMessage.addListener((message, sender, reply) => {
   }).then(reply, () => reply({ ok: false }));
   return true;
 });
+connection.start();

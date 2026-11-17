@@ -38,6 +38,8 @@ jobs:
       - run: cargo check --workspace --locked
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: cargo test --workspace --locked
+      - name: Check automatic Firefox registration and persistent native messages on hosted Windows
+        run: cargo test -p ndm-browser-bridge --test native_connection --locked -- --ignored
       - name: Build Windows installer and portable archive
         run: ./scripts/Build-Artifacts.ps1
       - uses: actions/upload-artifact@v4

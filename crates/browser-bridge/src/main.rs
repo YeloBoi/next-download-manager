@@ -5,16 +5,18 @@ use ndm_browser_bridge::{
 #[tokio::main]
 async fn main() {
     // Each browser supplies its caller identity differently.
-    let result = run().await;
-    if let Err(error) = result {
-        let response = Response {
-            version: 1,
-            request_id: String::new(),
-            accepted: false,
-            error: Some(error),
-        };
-        if let Ok(bytes) = serde_json::to_vec(&response) {
-            let _ = write_frame(&mut std::io::stdout().lock(), &bytes);
+    loop {
+        if let Err(error) = run().await {
+            let response = Response {
+                version: 1,
+                request_id: String::new(),
+                accepted: false,
+                error: Some(error),
+            };
+            if let Ok(bytes) = serde_json::to_vec(&response) {
+                let _ = write_frame(&mut std::io::stdout().lock(), &bytes);
+            }
+            break;
         }
     }
 }
@@ -97,8 +99,22 @@ async fn run() -> Result<(), String> {
                 &serde_json::to_vec(&response).map_err(|e| e.to_string())?,
             );
         }
-        if started.elapsed().as_secs() > 30 {
+        if started.elapsed()
+            > std::time::Duration::from_secs(if request.kind == "ping" { 2 } else { 30 })
+        {
             let _ = tokio::fs::remove_file(path.with_extension("request")).await;
+            if request.kind == "ping" {
+                let response = Response {
+                    version: 1,
+                    request_id: request.request_id,
+                    accepted: false,
+                    error: Some("Open NDM to connect automatically.".into()),
+                };
+                return write_frame(
+                    &mut std::io::stdout().lock(),
+                    &serde_json::to_vec(&response).map_err(|e| e.to_string())?,
+                );
+            }
             return Err("NDM did not acknowledge the request. Open the desktop app and try again; the browser download has been retained.".into());
         }
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;

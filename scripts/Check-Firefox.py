@@ -1,9 +1,14 @@
 """Runs only on a GitHub hosted runner; never installs into a user's profile."""
 import pathlib
+import json
+import os
+import signal
 import shutil
 import subprocess
 import tempfile
 import zipfile
+import sys
+import time
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -26,17 +31,52 @@ with tempfile.TemporaryDirectory() as temporary:
     options.binary_location = shutil.which('firefox')
     options.add_argument('-headless')
     options.add_argument('--allow-system-access')
-    driver = webdriver.Firefox(options=options)
+    # This fixture owns only a hosted runner's fake desktop host, never a user profile.
+    assert os.environ.get('GITHUB_ACTIONS') == 'true'
+    online = root / 'desktop-online'
+    native_log = root / 'native-messages.jsonl'
+    host = root / 'ndm-fixture.py'
+    host.write_text(f'#!{sys.executable}\nONLINE = {str(online)!r}\nLOG = {str(native_log)!r}\n' + '''
+import json, os, pathlib, struct, sys
+while True:
+    header = sys.stdin.buffer.read(4)
+    if not header: break
+    size = struct.unpack('<I', header)[0]
+    if size > 256 * 1024: break
+    message = json.loads(sys.stdin.buffer.read(size))
+    accepted = message['kind'] == 'ping' and pathlib.Path(ONLINE).exists()
+    with open(LOG, 'a') as log:
+        log.write(json.dumps({'accepted': accepted, 'kind': message['kind'], 'pid': os.getpid()}) + '\\n')
+    response = json.dumps({'version': 1, 'request_id': message['request_id'], 'accepted': accepted}).encode()
+    sys.stdout.buffer.write(struct.pack('<I', len(response)) + response)
+    sys.stdout.buffer.flush()
+''', encoding='utf8')
+    host.chmod(0o755)
+    manifests = pathlib.Path.home() / '.mozilla' / 'native-messaging-hosts'
+    manifests.mkdir(parents=True, exist_ok=True)
+    native_manifest = manifests / 'local.ndm.bridge.json'
+    assert not native_manifest.exists(), 'Fixture must not replace another native host'
+    native_manifest.write_text(json.dumps({'name': 'local.ndm.bridge', 'description': 'NDM CI fixture',
+        'path': str(host), 'type': 'stdio', 'allowed_extensions': ['ndm@yeloboi.github.io']}), encoding='utf8')
+    driver = None
     try:
+        driver = webdriver.Firefox(options=options)
         addon = driver.install_addon(str(archive), temporary=True)
         assert addon == 'ndm@yeloboi.github.io', addon
+        wait = WebDriverWait(driver, 25)
+        def messages():
+            return [json.loads(line) for line in native_log.read_text().splitlines()] if native_log.exists() else []
+        wait.until(lambda _: any(not row['accepted'] for row in messages()))
+        before = len(messages())
+        online.touch()
+        wait.until(lambda _: any(row['accepted'] for row in messages()[before:]))
+        background_pid = messages()[-1]['pid']
         driver.set_context('chrome')
         popup = driver.execute_script("return WebExtensionPolicy.getByID(arguments[0]).getURL('popup.html')", addon)
         driver.set_context('content')
         driver.set_window_size(1000, 1000)
         driver.get(popup)
-        wait = WebDriverWait(driver, 20)
-        wait.until(lambda d: d.find_element(By.ID, 'connection').text)
+        wait.until(lambda d: d.find_element(By.ID, 'connection').text == 'Desktop connected')
         driver.find_element(By.ID, 'urls').send_keys('https://example.com/ndm-firefox-test.zip')
         driver.find_element(By.ID, 'collect').click()
         wait.until(lambda d: len(d.find_elements(By.CSS_SELECTOR, '#selection li')) == 1)
@@ -45,8 +85,20 @@ with tempfile.TemporaryDirectory() as temporary:
         driver.find_element(By.ID, 'queue').click()
         wait.until(lambda d: 'Links are saved' in d.find_element(By.ID, 'result').text)
         assert len(driver.find_elements(By.CSS_SELECTOR, '#selection li')) == 1
+        driver.get('about:blank')  # Unload the popup completely.
+        time.sleep(35)  # Cross the event-page idle period with no popup open.
+        before = len(messages()); online.unlink()
+        wait.until(lambda _: any(not row['accepted'] for row in messages()[before:]))
+        before = len(messages()); online.touch()
+        wait.until(lambda _: any(row['accepted'] for row in messages()[before:]))
+        assert messages()[-1]['pid'] == background_pid, 'Closing the popup must preserve the background native port'
+        os.kill(background_pid, signal.SIGTERM)
+        wait.until(lambda _: any(row['accepted'] and row['pid'] != background_pid for row in messages()))
+        driver.get(popup)
+        wait.until(lambda d: d.find_element(By.ID, 'connection').text == 'Desktop connected')
         Select(driver.find_element(By.ID, 'language')).select_by_value('fa')
         wait.until(lambda d: d.find_element(By.TAG_NAME, 'html').get_attribute('dir') == 'rtl')
-        print('Firefox: temporary install, module background, saved selection, failed native send retention and Persian RTL passed.')
+        print('Firefox passed: automatic connection without popup; popup unload preserves native port; desktop restart and killed host recover automatically; selection, failed send retention and Persian RTL.')
     finally:
-        driver.quit()
+        if driver: driver.quit()
+        native_manifest.unlink(missing_ok=True)

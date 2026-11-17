@@ -205,16 +205,21 @@ async function checkBrowser(manual=false) {
   if(!native||checkingBrowser)return;
   const previous={...browserConnection};
   checkingBrowser=true;
-  const render=()=>{const card=document.querySelector('#browser-connection');if(card)card.innerHTML=extensionMarkup();};
-  if(manual)render();
+  const setButton=()=>{const node=document.querySelector<HTMLButtonElement>('[data-action="check-browser"]');if(node){node.disabled=checkingBrowser;node.textContent=t(checkingBrowser?'checkingBrowser':'checkBrowser');}};
+  if(manual)setButton();
   try {
-    browserConnection=await invoke<typeof browserConnection>('browser_connection');
+    browserConnection=await invoke<typeof browserConnection>('browser_connection',{repair:manual});
     if(manual)toast(t(browserConnection.connected?'browserReady':'browserCheckHint'));
-  } catch { browserConnection.connected=false; }
+  } catch(error) { browserConnection.connected=false;if(manual)toast(String(error)); }
   finally {
     checkingBrowser=false;
-    if(manual||previous.seen!==browserConnection.seen||previous.connected!==browserConnection.connected)render();
-    if(manual)document.querySelector<HTMLButtonElement>('[data-action="check-browser"]')?.focus();
+    if(previous.seen!==browserConnection.seen||previous.connected!==browserConnection.connected){
+      const card=document.querySelector('#browser-connection');
+      const focusedAction=(document.activeElement as HTMLElement)?.dataset.action;
+      if(card)card.innerHTML=extensionMarkup();
+      if(focusedAction==='check-browser'||focusedAction==='extension-guide')document.querySelector<HTMLButtonElement>(`[data-action="${focusedAction}"]`)?.focus();
+    }
+    setButton();
   }
 }
 async function execute(action:unknown) {
@@ -362,6 +367,7 @@ if(native){
     await appWindow!.onResized(()=>{ void syncWindowState().catch(error=>toast(String(error))); });
     await appWindow!.onFocusChanged(({payload})=>{
       focused = payload;
+      if(focused)void checkBrowser();
       document.documentElement.dataset.focused = String(focused);
     });
     await listen<Snapshot>('ndm://snapshot',event=>{
@@ -373,6 +379,6 @@ if(native){
     await listen<string>('ndm://error',event=>toast(event.payload));
     state=await invoke<Snapshot>('snapshot');shell();
     await checkBrowser();
-    setInterval(()=>{void checkBrowser();},5000);
+    setInterval(()=>{void checkBrowser();},2000);
   }catch(error){toast(`${t('backendError')} ${String(error)}`);}
 }

@@ -2,8 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 for (const namespace of ['chrome','browser']) test(`${namespace} background serializes selections, preserves failed sends and survives suspension`,async()=>{
-  let stored={};let fail=true;const sent=[];let events={};
+  let stored={};let fail=true;const sent=[];let events={};let background;
   const boot=async(index)=>{
+    background?.connection.stop();
     events={};
     const event=name=>({addListener:listener=>{events[name]=listener;}});
     globalThis[namespace]={
@@ -15,7 +16,7 @@ for (const namespace of ['chrome','browser']) test(`${namespace} background seri
       action:{setBadgeText:async()=>{},setBadgeBackgroundColor:async()=>{}},
       alarms:{create:async()=>{},onAlarm:event('alarm')},
     };
-    await import(`../extensions/chromium/background.js?test=${namespace}-${index}`);
+    background=await import(`../extensions/chromium/background.js?test=${namespace}-${index}`);
   };
   const call=(operation,values={})=>new Promise(resolve=>events.message({type:'selection',operation,...values},{id:'ndm-test',url:'chrome-extension://ndm-test/popup.html'},resolve));
   await boot(1);
@@ -41,5 +42,6 @@ for (const namespace of ['chrome','browser']) test(`${namespace} background seri
   let replied=false;
   events.message({type:'selection',operation:'clear'},{id:'ndm-test',url:'https://untrusted.test/'},()=>{replied=true;});
   assert.equal(replied,false);
+  background.connection.stop();
   delete globalThis[namespace];
 });

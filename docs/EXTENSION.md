@@ -9,8 +9,14 @@ This development extension is unsigned: it remains installed until Firefox
 restarts. Permanent installation needs Mozilla signing, which has not been done.
 Do not disable signature enforcement or change Firefox security settings.
 
-For desktop delivery, update NDM to **0.1.0-alpha.4 or later**, then run this
-command from its installed/portable folder with the supplied registration script:
+For desktop delivery, update **both the desktop app and extension to alpha.5 or
+later**, then open NDM once. Firefox native-host registration is automatic at app
+startup; no extension ID, PowerShell command or open popup is needed. The background
+owns a persistent native port, probes every five seconds and reconnects on failure.
+The desktop card updates automatically. Check connection also repairs Firefox
+registration if needed. Keep the companion ndm-native-host.exe beside ndm.exe.
+
+For older releases or manual troubleshooting only, run from the app folder:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\Register-NativeHost.ps1 -Browser Firefox -HostPath "$PWD\ndm-native-host.exe"
@@ -62,16 +68,17 @@ desktop in the current user's `%LOCALAPPDATA%\NDM\bridge` directory; it opens no
 TCP listener. Same-user local processes are within the trust boundary. No arbitrary
 commands or user-selected destination paths are accepted through the protocol.
 
-The installer includes the native host and registration scripts. Registration
-requires the actual unpacked extension ID and is therefore an explicit post-install
-step, not automatic. Installer uninstall removes the native-host registry keys;
+The installer includes the native host and registration scripts. Firefox registration
+is automatic on NDM startup. Chrome/Edge registration still requires the actual
+unpacked extension ID and remains an explicit post-install step. Installer uninstall removes the native-host registry keys;
 run `Unregister-NativeHost.ps1` to unregister a portable installation. Queue data
 and downloaded files are retained.
 
 The desktop card uses the most recent valid native-message handshake, expiring
-after 90 seconds. A browser alarm pings once per minute; an open popup also checks
-periodically. Sleep or delayed alarms can temporarily show disconnected. This
-does not prove the extension is uninstalled. Open the popup to check immediately.
+after 15 seconds. The background port probes every five seconds, independently
+of the popup; a browser alarm is a recovery fallback. Sleep or delayed background
+work can temporarily show disconnected. This
+does not prove the extension is uninstalled. The popup displays the same background connection state.
 The card's setup/manage action opens this real guide; automatic browser installation
 is not performed. The extension adds only the `alarms` permission for these checks.
 

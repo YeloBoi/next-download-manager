@@ -80,12 +80,12 @@ while True:
         wait.until(lambda d: d.find_element(By.ID, 'connection').text == 'Desktop connected')
         driver.find_element(By.ID, 'urls').send_keys('https://example.com/ndm-firefox-test.zip')
         driver.find_element(By.ID, 'collect').click()
-        wait.until(lambda d: len(d.find_elements(By.CSS_SELECTOR, '#selection li')) == 1)
+        wait.until(lambda d: len(d.find_elements(By.CSS_SELECTOR, '#selection li details')) == 1)
         driver.refresh()
-        wait.until(lambda d: len(d.find_elements(By.CSS_SELECTOR, '#selection li')) == 1)
+        wait.until(lambda d: len(d.find_elements(By.CSS_SELECTOR, '#selection li details')) == 1)
         driver.find_element(By.ID, 'queue').click()
         wait.until(lambda d: 'Links are saved' in d.find_element(By.ID, 'result').text)
-        assert len(driver.find_elements(By.CSS_SELECTOR, '#selection li')) == 1
+        assert len(driver.find_elements(By.CSS_SELECTOR, '#selection li details')) == 1
         driver.get('about:blank')  # Unload the popup completely.
         time.sleep(35)  # Cross the event-page idle period with no popup open.
         before = len(messages()); online.unlink()
@@ -100,7 +100,7 @@ while True:
         accept_add.touch()
         driver.find_element(By.ID, 'now').click()
         wait.until(lambda d: 'Accepted by NDM' in d.find_element(By.ID, 'result').text)
-        assert not driver.find_elements(By.CSS_SELECTOR, '#selection li')
+        wait.until(lambda d: not d.find_elements(By.CSS_SELECTOR, '#selection li details'))
         sent = [row for row in messages() if row['kind'] == 'add' and row['accepted']]
         assert sent[-1]['start'] is True
         assert sent[-1]['urls'] == ['https://example.com/ndm-firefox-test.zip']

@@ -3,8 +3,9 @@ import '@fontsource-variable/vazirmatn';
 import './style.css';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-dialog';
-import { createElement, ArrowDownToLine, Plus, Layers, Play, Pause, Square, Search, Settings as Gear, FolderOpen, Check, CircleAlert, Clock, ChevronDown, X, MoreHorizontal, ArrowUp, ArrowDown, File, Link, Menu, RotateCcw, Trash2, Copy, ListOrdered } from 'lucide';
+import { createElement, ArrowDownToLine, Plus, Layers, Play, Pause, Square, Search, Settings as Gear, FolderOpen, Check, CircleAlert, Clock, ChevronDown, X, MoreHorizontal, ArrowUp, ArrowDown, File, Link, Menu, RotateCcw, Trash2, Copy, ListOrdered, Minus, Maximize2, Minimize2 } from 'lucide';
 import { bytes, percent, eta, escapeHtml as e, parseLinks } from './format.mjs';
 import { translator, type Key } from './i18n';
 import type { Download, Settings, Snapshot, Status } from './types';
@@ -12,7 +13,10 @@ import type { Download, Settings, Snapshot, Status } from './types';
 const native = isTauri();
 const icons: Record<string, any> = { download:ArrowDownToLine, plus:Plus, layers:Layers, play:Play, pause:Pause, stop:Square, search:Search, settings:Gear, folder:FolderOpen, check:Check, error:CircleAlert, clock:Clock, down:ChevronDown, close:X, more:MoreHorizontal, up:ArrowUp, arrowDown:ArrowDown, file:File, link:Link, menu:Menu, retry:RotateCcw, trash:Trash2, copy:Copy, list:ListOrdered };
 const icon = (name: string) => createElement(icons[name] || File, { width:18, height:18, 'stroke-width':1.65, 'aria-hidden':'true' }).outerHTML;
-const mark = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 8v16M5 8l12 16V8M23 8v16m-4-4 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const mark = '<img src="/brand/mark-blue.png" alt="" draggable="false">';
+const appWindow = native ? getCurrentWindow() : null;
+let maximized = false;
+let focused = true;
 const root = document.querySelector<HTMLDivElement>('#app')!;
 let state: Snapshot = { downloads:[], running:false, draining:false, settings:{ directory:'', language:'en', theme:'dark', compact:false, concurrent_downloads:1, connections_per_file:1, global_connections:16, host_connections:8, speed_limit:0, resume_on_launch:false, stop_on_error:false, schedule_enabled:false, schedule_start:0, schedule_end:0, close_to_tray:false } };
 let t = translator('en');
@@ -45,8 +49,17 @@ function applyAppearance() {
 function shell() {
   applyAppearance();
   root.innerHTML = `
+    <header class="titlebar" aria-label="NDM" data-tauri-drag-region>
+      <div class="window-identity" data-tauri-drag-region>${mark}<span data-tauri-drag-region>NDM</span><span class="window-product" data-tauri-drag-region>Next Download Manager</span></div>
+      <div class="window-drag-space" data-tauri-drag-region></div>
+      <div class="window-controls" role="group" aria-label="${e(t('windowControls'))}">
+        <button data-window="minimize" aria-label="${e(t('minimize'))}" title="${e(t('minimize'))}" ${!native?'disabled':''}>${createElement(Minus,{'aria-hidden':'true'}).outerHTML}</button>
+        <button data-window="maximize" aria-label="${e(t(maximized?'restore':'maximize'))}" title="${e(t(maximized?'restore':'maximize'))}" ${!native?'disabled':''}>${createElement(maximized?Minimize2:Maximize2,{'aria-hidden':'true'}).outerHTML}</button>
+        <button data-window="close" class="window-close" aria-label="${e(t('close'))}" title="${e(t('close'))}" ${!native?'disabled':''}>${icon('close')}</button>
+      </div>
+    </header>
     <aside class="sidebar" aria-label="${e(t('menu'))}">
-      <a class="brand" href="#downloads" aria-label="NDM — Next Download Manager"><span class="mark">${mark}</span><span>NDM<small>Next Download Manager</small></span></a>
+      <a class="brand" href="#downloads" aria-label="NDM — Next Download Manager"><span class="app-badge"><img class="logo-dark" src="/brand/app-dark.png" alt="" draggable="false"><img class="logo-light" src="/brand/app-light.png" alt="" draggable="false"></span><span>NDM<small>Next Download Manager</small></span></a>
       <div class="nav-caption">${e(t('local'))}</div>
       <nav>${filters.map(([key,glyph]) => `<button data-filter="${key}" class="nav-item ${!settingsView&&filter===key?'current':''}" ${!settingsView&&filter===key?'aria-current="page"':''}>${icon(glyph)}<span>${e(t(key as Key))}</span><span class="nav-count">${countFor(key)}</span></button>`).join('')}</nav>
       <div class="sidebar-bottom">
@@ -68,6 +81,29 @@ function shell() {
   if (!settingsView) { updateList(); updateDetails(); }
   bindShell();
 }
+
+async function syncWindowState() {
+  if (!appWindow) return;
+  maximized = await appWindow.isMaximized();
+  document.documentElement.dataset.maximized = String(maximized);
+  const control = document.querySelector<HTMLButtonElement>('[data-window="maximize"]');
+  if (control) {
+    control.innerHTML = createElement(maximized?Minimize2:Maximize2,{'aria-hidden':'true'}).outerHTML;
+    control.title = t(maximized?'restore':'maximize');
+    control.setAttribute('aria-label',control.title);
+  }
+}
+
+document.addEventListener('click',async event=>{
+  const control = (event.target as Element).closest<HTMLElement>('[data-window]');
+  if (!control || !appWindow) return;
+  try {
+    if (control.dataset.window === 'minimize') await appWindow.minimize();
+    else if (control.dataset.window === 'maximize') { await appWindow.toggleMaximize(); await syncWindowState(); }
+    // close() preserves the existing close-to-tray and graceful queue shutdown handler.
+    else if (control.dataset.window === 'close') await appWindow.close();
+  } catch (error) { toast(String(error)); }
+});
 
 function downloadsMarkup() {
   return `<div class="title-row"><div><h1>${e(t(filter as Key))}</h1><p>${e(t('subtitle'))}</p></div><div class="title-actions">${button('multiple','multiple','layers')}${button('add','add','plus','class="primary"')}</div></div>
@@ -297,6 +333,12 @@ document.addEventListener('keydown',event=>{
 shell();
 if(native){
   try {
+    await syncWindowState();
+    await appWindow!.onResized(()=>{ void syncWindowState().catch(error=>toast(String(error))); });
+    await appWindow!.onFocusChanged(({payload})=>{
+      focused = payload;
+      document.documentElement.dataset.focused = String(focused);
+    });
     await listen<Snapshot>('ndm://snapshot',event=>{
       state=event.payload;
       const now=Date.now();

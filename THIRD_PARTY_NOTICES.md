@@ -1,6 +1,7 @@
 # Third-party notices (development inventory)
 
-Original NDM code is governed by LICENSE. Dependencies retain their own licenses.
+The owner requested removal of the project's draft LICENSE. Dependencies retain
+their own licenses and notices independently of that decision.
 This inventory is not a completed redistribution audit.
 
 Direct dependencies include Rust, Tokio, reqwest, serde/serde_json, thiserror,
@@ -13,7 +14,9 @@ Frontend: Tauri API/plugins (MIT OR Apache-2.0), TypeScript (Apache-2.0), Vite
 Fontsource packaging and their transitive dependencies. Font files are bundled
 from @fontsource-variable packages; no font download occurs during app use.
 
-Before external distribution, collect the actual complete license texts and
-attribution notices for the locked dependency graph, fonts, assets, installer
-runtime and SQLite configuration. Preserve copyright statements and any required
-notices. Do not treat this list alone as sufficient license compliance evidence.
+Hosted packaging collects the supplied package LICENSE, COPYING, NOTICE and OFL
+files, plus Cargo license-file entries, into THIRD_PARTY_LICENSES with a dependency
+inventory. The installer and portable archive include that directory. The bundled
+Inter and Vazirmatn font licenses must be present or packaging fails.
+This automated collection preserves available texts; it is not a complete legal
+audit of every transitive dependency, runtime or SQLite configuration.

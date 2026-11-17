@@ -10,13 +10,11 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - name: Require owner approval of publication metadata
+      - name: Verify tag matches application version
         shell: pwsh
         run: |
-          if ('${{ vars.NDM_PUBLICATION_APPROVED }}' -ne 'true') { throw 'Finalize the rights holder and binary license, then set NDM_PUBLICATION_APPROVED=true.' }
           $version = (Get-Content apps/desktop/src-tauri/tauri.conf.json | ConvertFrom-Json).version
           if ('${{ github.ref_name }}' -ne "v$version") { throw 'Tag and application versions differ.' }
-          if (Select-String -Path LICENSE -Pattern 'RIGHTS_HOLDER_PENDING|DRAFT') { throw 'Finalize LICENSE before publishing.' }
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -30,6 +28,10 @@ jobs:
       - run: npm ci --include=optional
       - run: npm run check
       - run: npm run build
+      - name: Check English and Persian interface in hosted Edge
+        run: |
+          npm install --no-save --package-lock=false playwright@1.58.2
+          node scripts/Check-Interface.mjs
       - run: cargo fmt --all --check
       - run: cargo check --workspace --locked
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
@@ -41,9 +43,11 @@ jobs:
           path: |
             .artifacts/*.exe
             .artifacts/*.zip
+            .artifacts/preview-*.png
             .artifacts/SHA256SUMS
             .artifacts/RELEASE_NOTES.md
           include-hidden-files: true
+          if-no-files-found: error
   publish:
     needs: verify-and-build
     runs-on: ubuntu-latest
@@ -59,4 +63,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: gh release create "$RELEASE_TAG" release-files/* --prerelease --title "NDM $RELEASE_TAG" --notes-file release-files/RELEASE_NOTES.md
+        run: |
+          cd release-files
+          sha256sum --check --strict SHA256SUMS
+          gh release create "$RELEASE_TAG" ./*.exe ./*.zip ./*.png SHA256SUMS RELEASE_NOTES.md --verify-tag --draft --prerelease --title "NDM $RELEASE_TAG" --notes-file RELEASE_NOTES.md
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false

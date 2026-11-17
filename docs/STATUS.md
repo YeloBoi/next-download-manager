@@ -1,8 +1,8 @@
 # Acceptance status
 
-Development alpha. The private owner-evaluation
-[v0.1.0-alpha.1 pre-release](https://github.com/YeloBoi/next-download-manager/releases/tag/v0.1.0-alpha.1)
-contains the verified hosted build. Public distribution remains pending the gates below.
+Development alpha. Version 0.1.0-alpha.2 adds the supplied brand assets, a custom
+rounded titlebar and no draft project LICENSE, as requested by the owner.
+Public source and pre-release distribution are authorized.
 
 Implemented in source: direct HTTP(S), validated segmented ranges, fallback for
 fresh downloads, strict resume identity, durable checkpoints, SQLite recovery,
@@ -24,7 +24,7 @@ or download build artifacts on the owner's computer without a new request.
 Interactive desktop use, installation and real UI screenshots have not been
 validated by the hosted build.
 
-Release gates still open:
+Remaining validation and limitations:
 
 - Keep hosted Windows checks and packaging passing for future code changes.
 - Actual desktop English/Persian shaping, keyboard/accessibility, DPI, light/dark,
@@ -38,9 +38,8 @@ Release gates still open:
   checks need refinement. There is no adaptive Auto connection mode.
 - Notifications, clipboard monitoring, automatic interception, automatic host
   registration, sleep prevention, link replacement and shutdown actions are absent.
-- Rights-holder identity, binary-use terms, contribution terms, dependency license
-  audit, provisional product-name check and digital signing remain unresolved.
+- Digital signing and a complete transitive dependency license audit remain open.
 
 Next milestone: verify the actual installer and real UI, widen fault/recovery
-coverage, and finalize ownership and distribution terms before a public pre-release.
-Do not label a passing build as proof of those manual acceptance gates.
+coverage and continue the dependency inventory. Do not label a passing build as
+proof of the manual acceptance checks.

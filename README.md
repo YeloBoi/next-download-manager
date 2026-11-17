@@ -1,5 +1,7 @@
 # NDM — Next Download Manager
 
+![NDM logo](apps/desktop/public/brand/wordmark-color.png)
+
 Windows 10/11 x64 direct-download manager. Development alpha; not a stable release.
 The Rust engine and SQLite queue are separate from the Tauri 2 / TypeScript UI.
 English is the default; Persian changes the layout to RTL and uses Vazirmatn.
@@ -8,11 +10,10 @@ The successful hosted build and downloadable artifacts are recorded in
 
 ## Builds on GitHub
 
-Download the private owner-evaluation
-[v0.1.0-alpha.1 pre-release](https://github.com/YeloBoi/next-download-manager/releases/tag/v0.1.0-alpha.1)
+Download the [v0.1.0-alpha.2 pre-release](https://github.com/YeloBoi/next-download-manager/releases/tag/v0.1.0-alpha.2)
 from **Releases → Assets**. For installation, choose
-`NDM_0.1.0-alpha.1_x64-setup.exe` (4.54 MB). The portable ZIP, Chromium extension,
-SHA256SUMS and release notes are separate assets. Sign in as a repository member.
+`NDM_0.1.0-alpha.2_x64-setup.exe`. The portable ZIP, Chromium extension,
+SHA256SUMS and release notes are separate assets.
 
 All dependency installation, Rust compilation, tests and packaging run in
 **GitHub Actions → Windows checks and build**. No local build is required.
@@ -79,14 +80,21 @@ desktop app has been exercised and captured.
 See [acceptance status](docs/STATUS.md), [architecture](docs/ARCHITECTURE.md) and
 [release notes](docs/RELEASE_NOTES.md). CI success is not proof of interactive
 desktop behavior, correct RTL rendering, clean-machine installation or complete
-crash resilience. Those need separate validation before public release.
+crash resilience. These remain unverified acceptance criteria for this development alpha.
 
 There is no telemetry, DRM bypass, page-video extraction or support for arbitrary
 authenticated browser sessions. Auto connection tuning, notifications, sleep
 prevention, automatic categorization, expired-link replacement, clipboard watching
 and shutdown-after-queue are not implemented.
 
-This is **source available / all rights reserved**, not open source. [LICENSE](LICENSE)
-is a draft awaiting the actual rights holder and binary-use terms. Public release
-is blocked until those are finalized. The NDM name is provisional; trademark and
-product-name availability have not been established.
+The owner requested removal of the draft project LICENSE and authorized public
+source and alpha binaries. No replacement license is added. Third-party licenses
+and notices remain applicable; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+The NDM name is provisional; trademark and product-name availability have not
+been established.
+
+The supplied logo variants are cropped for their actual contexts: desktop and
+installer icons, theme-aware sidebar, custom titlebar, browser extension and docs.
+See [brand assets](docs/BRAND.md) for the crop map.
+
+![NDM monochrome logo](apps/desktop/public/brand/wordmark-mono.png)

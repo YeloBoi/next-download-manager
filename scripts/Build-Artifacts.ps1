@@ -6,10 +6,13 @@ $out = Join-Path (Get-Location) '.artifacts'
 New-Item -ItemType Directory -Path $out -Force | Out-Null
 cargo build --release --locked -p ndm-browser-bridge
 Assert-NativeExit
+node scripts/Collect-Notices.mjs
+Assert-NativeExit
 $bundleConfig = @{ bundle = @{ resources = @{
   '../../../target/release/ndm-native-host.exe' = 'ndm-native-host.exe'
   '../../../scripts/Register-NativeHost.ps1' = 'Register-NativeHost.ps1'
   '../../../scripts/Unregister-NativeHost.ps1' = 'Unregister-NativeHost.ps1'
+  '../../../.artifacts/THIRD_PARTY_LICENSES' = 'THIRD_PARTY_LICENSES'
 } } } | ConvertTo-Json -Depth 5 -Compress
 $bundleConfigPath = Join-Path (Get-Location) 'apps/desktop/src-tauri/tauri.ci.conf.json'
 [IO.File]::WriteAllText($bundleConfigPath,$bundleConfig,[Text.UTF8Encoding]::new($false))
@@ -23,8 +26,9 @@ try {
 }
 $portable = Join-Path $out 'portable'
 New-Item -ItemType Directory -Path $portable -Force | Out-Null
-Copy-Item target/release/ndm.exe,target/release/ndm-native-host.exe,scripts/Register-NativeHost.ps1,scripts/Unregister-NativeHost.ps1,README.md,LICENSE,THIRD_PARTY_NOTICES.md -Destination $portable
+Copy-Item target/release/ndm.exe,target/release/ndm-native-host.exe,scripts/Register-NativeHost.ps1,scripts/Unregister-NativeHost.ps1,README.md,THIRD_PARTY_NOTICES.md -Destination $portable
 Copy-Item docs -Destination (Join-Path $portable 'docs') -Recurse -Force
+Copy-Item (Join-Path $out 'THIRD_PARTY_LICENSES') -Destination $portable -Recurse -Force
 Compress-Archive -Path "$portable/*" -DestinationPath "$out/NDM-$version-windows-x64-portable.zip" -Force
 Copy-Item target/release/bundle/nsis/*.exe -Destination $out
 Compress-Archive -Path extensions/chromium/* -DestinationPath "$out/NDM-$version-chromium.zip" -Force

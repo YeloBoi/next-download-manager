@@ -1,4 +1,5 @@
 const en = {
+  windowControls:'Window controls', minimize:'Minimize', maximize:'Maximize', restore:'Restore window',
   all:'All downloads', downloading:'Downloading', connecting:'Connecting', queued:'Queued', paused:'Paused', stopped:'Stopped', completed:'Completed', failed:'Failed',
   settings:'Settings', add:'Add link', multiple:'Add multiple', start:'Start queue', pauseQueue:'Pause queue', stopQueue:'Stop queue', drain:'Stop after current',
   downloads:'Downloads', subtitle:'Your files, in your order.', search:'Search downloads', name:'File name', size:'Size / progress', speed:'Speed', eta:'Time left', status:'Status',
@@ -25,6 +26,7 @@ const en = {
 } as const;
 type Key = keyof typeof en;
 const fa: Record<Key,string> = {
+  windowControls:'کنترل‌های پنجره', minimize:'کوچک کردن', maximize:'بزرگ کردن', restore:'بازگرداندن اندازهٔ پنجره',
   all:'همهٔ دانلودها', downloading:'در حال دانلود', connecting:'در حال اتصال', queued:'در صف', paused:'مکث‌شده', stopped:'متوقف‌شده', completed:'تکمیل‌شده', failed:'ناموفق',
   settings:'تنظیمات', add:'افزودن لینک', multiple:'افزودن گروهی', start:'شروع صف', pauseQueue:'مکث صف', stopQueue:'توقف صف', drain:'توقف پس از دانلودهای فعال',
   downloads:'دانلودها', subtitle:'فایل‌های شما، به ترتیب شما.', search:'جست‌وجوی دانلودها', name:'نام فایل', size:'اندازه / پیشرفت', speed:'سرعت', eta:'زمان باقی‌مانده', status:'وضعیت',

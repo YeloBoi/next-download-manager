@@ -11,12 +11,14 @@ live rate limit, SHA-256 comparison, unique destination names, English/Persian
 resources, themes/density, schedule for starting work, tray menu, explicit native
 messaging and unpacked extension, artifact and tag-gated release workflows.
 
-Hosted Windows validation on commit `6bb723248160f921d2fa4fd3ac2964351b25ce09`
+Hosted Windows validation on commit `990526af88165f06840d8b21555b3e175c780c5a`
 passed frontend checks/build, `cargo fmt --all --check`,
 `cargo check --workspace --locked`, all-target Clippy with warnings denied, and
 `cargo test --workspace --locked`: 13 Rust tests plus 5 Node tests. The release
 executable, NSIS installer, portable ZIP and extension ZIP were built and all
-four artifact uploads succeeded. See [build evidence](BUILD_REPORT.md).
+five artifact uploads succeeded. Hosted Edge UI smoke checks passed English/dark,
+Persian/light, asset loading, rounded frame, right-side controls, the add dialog
+and overflow at 1440, 768 and 390px. See [build evidence](BUILD_REPORT.md).
 
 All ongoing dependency installation, compilation and packaging must take place
 on GitHub hosted runners at the owner's request. Do not build, install dependencies

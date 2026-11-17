@@ -1,5 +1,32 @@
 # Hosted Windows build evidence
 
+## 0.1.0-alpha.2
+
+- Source/tag: `990526af88165f06840d8b21555b3e175c780c5a` / `v0.1.0-alpha.2`.
+- Successful Windows CI: https://github.com/YeloBoi/next-download-manager/actions/runs/44080342849
+- Tagged release workflow: https://github.com/YeloBoi/next-download-manager/actions/runs/44081589198
+- Release: https://github.com/YeloBoi/next-download-manager/releases/tag/v0.1.0-alpha.2
+
+Windows CI passed TypeScript, 5 Node tests, production frontend build, formatting,
+workspace check, Clippy with warnings denied, 13 Rust tests, native host and Tauri
+release builds, NSIS installer, portable ZIP, extension ZIP and all artifact uploads.
+Hosted Edge smoke checks also passed English/dark and Persian/light UI, real crop
+loading, a rounded frame, right-side window controls, the add-link dialog and
+overflow checks at 1440, 768 and 390px. The two PNG previews show the actual built
+frontend in Edge; they are not native Windows installer or desktop screenshots.
+
+The supplied composite logo was cropped, with original interior colors retained.
+The draft project LICENSE was removed at the owner's request. Dependency license
+texts supplied by installed packages are collected into THIRD_PARTY_LICENSES for
+the installer and portable archive. This is not a complete legal audit.
+
+All builds and UI test execution took place on GitHub. No dependency installation,
+local compilation or release artifact download occurred on the owner's machine.
+Native window drag/resize/control behavior, clean-machine Windows installation and
+browser-to-native integration remain unverified manually. Binaries are unsigned.
+
+## Historical 0.1.0-alpha.1 evidence
+
 - Repository: https://github.com/YeloBoi/next-download-manager (private pending legal metadata).
 - Successful workflow: https://github.com/YeloBoi/next-download-manager/actions/runs/43959110412
 - Built source: `6bb723248160f921d2fa4fd3ac2964351b25ce09`.

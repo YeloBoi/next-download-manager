@@ -6,6 +6,19 @@
 - Successful Windows CI: https://github.com/YeloBoi/next-download-manager/actions/runs/44080342849
 - Tagged release workflow: https://github.com/YeloBoi/next-download-manager/actions/runs/44081589198
 - Release: https://github.com/YeloBoi/next-download-manager/releases/tag/v0.1.0-alpha.2
+- Tagged workflow completed successfully; its publish job verified checksums and
+  uploaded all seven release assets. The repository was then made public at the
+  owner's explicit request.
+
+| Alpha 2 release asset | Bytes |
+| --- | ---: |
+| NDM_0.1.0-alpha.2_x64-setup.exe | 5,359,916 |
+| NDM-0.1.0-alpha.2-windows-x64-portable.zip | 9,200,093 |
+| NDM-0.1.0-alpha.2-chromium.zip | 34,843 |
+| preview-en-dark.png | 76,862 |
+| preview-fa-light.png | 71,533 |
+| SHA256SUMS | 566 |
+| RELEASE_NOTES.md | 1,119 |
 
 Windows CI passed TypeScript, 5 Node tests, production frontend build, formatting,
 workspace check, Clippy with warnings denied, 13 Rust tests, native host and Tauri

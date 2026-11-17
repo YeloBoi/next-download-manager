@@ -2,7 +2,9 @@
 
 Development alpha. Version 0.1.0-alpha.2 adds the supplied brand assets, a custom
 rounded titlebar and no draft project LICENSE, as requested by the owner.
-Public source and pre-release distribution are authorized.
+Public source and pre-release distribution are authorized and published:
+[repository](https://github.com/YeloBoi/next-download-manager) ·
+[alpha 2 release](https://github.com/YeloBoi/next-download-manager/releases/tag/v0.1.0-alpha.2).
 
 Implemented in source: direct HTTP(S), validated segmented ranges, fallback for
 fresh downloads, strict resume identity, durable checkpoints, SQLite recovery,

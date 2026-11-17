@@ -17,6 +17,10 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    BrowserAdd {
+        urls: Vec<String>,
+        start: bool,
+    },
     Add {
         urls: Vec<String>,
         directory: Option<PathBuf>,
@@ -85,6 +89,7 @@ impl Manager {
         defaults.validate().map_err(|e| e.to_string())?;
         let store = Store::open(data.join("ndm.db")).await?;
         let mut snapshot = store.load().await?.unwrap_or(Snapshot {
+            user_paused: false,
             downloads: vec![],
             settings: defaults,
             running: false,
@@ -176,7 +181,17 @@ impl Actor {
                         self.snapshot.running = false; self.cancel_all(Status::Stopped); self.shutdown = Some(reply);
                     } else {
                         let before = self.snapshot.clone();
+                        let user_paused = match &action {
+                            Action::PauseQueue | Action::StopQueue | Action::Stop { .. }
+                            | Action::Pause { continue_queue: false, .. } | Action::Drain => Some(true),
+                            Action::StartQueue | Action::Resume { .. } | Action::Restart { .. }
+                            | Action::Add { start: true, .. } => Some(false),
+                            _ => None,
+                        };
                         let result = self.apply(action).await;
+                        if result.is_ok() {
+                            if let Some(paused) = user_paused { self.snapshot.user_paused = paused; }
+                        }
                         let result = match result {
                             Ok(()) => match self.store.save(&self.snapshot).await {
                                 Ok(()) => Ok(self.snapshot.clone()),
@@ -245,6 +260,52 @@ impl Actor {
     }
     async fn apply(&mut self, action: Action) -> Result<(), String> {
         match action {
+            Action::BrowserAdd { urls, start } => {
+                if urls.is_empty() || urls.len() > 100 {
+                    return Err("Add between 1 and 100 URLs at a time.".into());
+                }
+                let mut seen: HashSet<String> = self
+                    .snapshot
+                    .downloads
+                    .iter()
+                    .map(|job| job.url.clone())
+                    .collect();
+                let mut fresh = Vec::new();
+                for input in urls {
+                    if input.len() > 16384 {
+                        return Err("The URL exceeds the length limit.".into());
+                    }
+                    let url = validate_url(&input).map_err(|e| e.to_string())?.to_string();
+                    if seen.insert(url.clone()) {
+                        fresh.push(url);
+                    }
+                }
+                if !fresh.is_empty() {
+                    let old_len = self.snapshot.downloads.len();
+                    // Box the shared add action rather than duplicate its validation and creation.
+                    Box::pin(self.apply(Action::Add {
+                        urls: fresh,
+                        directory: None,
+                        name: None,
+                        start: false,
+                        sha256: None,
+                    }))
+                    .await?;
+                    if start {
+                        let jobs = self.snapshot.downloads.split_off(old_len);
+                        let next = self
+                            .snapshot
+                            .downloads
+                            .iter()
+                            .position(|job| job.status == Status::Queued)
+                            .unwrap_or(old_len);
+                        self.snapshot.downloads.splice(next..next, jobs);
+                        if !self.snapshot.user_paused {
+                            self.snapshot.running = true;
+                        }
+                    }
+                }
+            }
             Action::Add {
                 urls,
                 directory,
@@ -571,6 +632,7 @@ impl Actor {
                         job.error = Some(e.to_string());
                         if self.snapshot.settings.stop_on_error {
                             self.snapshot.running = false;
+                            self.snapshot.user_paused = true;
                         }
                     }
                 }

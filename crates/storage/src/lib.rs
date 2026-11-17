@@ -83,6 +83,7 @@ mod tests {
             .expect("open");
         assert!(store.load().await.expect("load").is_none());
         let snapshot = Snapshot {
+            user_paused: false,
             downloads: vec![],
             settings: Settings::new(dir.path().to_path_buf()),
             running: false,

@@ -27,6 +27,83 @@ fn add(urls: Vec<String>, start: bool) -> Action {
         sha256: None,
     }
 }
+
+#[tokio::test]
+async fn browser_batches_deduplicate_preserve_order_and_respect_durable_user_stop() {
+    let server = support::Server::start().await;
+    let dir = tempfile::tempdir().expect("dir");
+    let data = dir.path().join("state");
+    let settings = Settings::new(dir.path().join("downloads"));
+    let manager = Manager::open(data.clone(), settings.clone())
+        .await
+        .expect("open");
+    manager
+        .execute(Action::PauseQueue)
+        .await
+        .expect("pause empty queue");
+    let urls = vec![server.url("range"), server.url("plain")];
+    manager
+        .execute(Action::BrowserAdd {
+            urls: urls.clone(),
+            start: true,
+        })
+        .await
+        .expect("browser batch");
+    let initial = manager.snapshot();
+    assert!(
+        !initial.running,
+        "browser must not override an explicit pause"
+    );
+    assert_eq!(
+        initial
+            .downloads
+            .iter()
+            .map(|job| job.url.clone())
+            .collect::<Vec<_>>(),
+        urls
+    );
+    manager
+        .execute(Action::BrowserAdd {
+            urls: urls.clone(),
+            start: true,
+        })
+        .await
+        .expect("replayed batch");
+    assert_eq!(manager.snapshot().downloads.len(), 2);
+    assert!(manager
+        .execute(Action::BrowserAdd {
+            urls: vec![server.url("unknown"), "file:///invalid".into()],
+            start: false
+        })
+        .await
+        .is_err());
+    assert_eq!(
+        manager.snapshot().downloads.len(),
+        2,
+        "validation must be atomic"
+    );
+    manager.execute(Action::Shutdown).await.expect("shutdown");
+    let reopened = Manager::open(data, settings).await.expect("reopen");
+    reopened
+        .execute(Action::BrowserAdd {
+            urls: vec![server.url("unknown")],
+            start: true,
+        })
+        .await
+        .expect("new browser batch");
+    assert!(!reopened.snapshot().running);
+    assert_eq!(
+        reopened.snapshot().downloads[0].url,
+        server.url("unknown"),
+        "download now goes before waiting files"
+    );
+    reopened
+        .execute(Action::StartQueue)
+        .await
+        .expect("explicit start");
+    assert!(!reopened.snapshot().user_paused);
+    reopened.execute(Action::Shutdown).await.expect("shutdown");
+}
 #[tokio::test]
 async fn fifo_add_while_active_drain_and_persistent_reopen() {
     let server = support::Server::start().await;

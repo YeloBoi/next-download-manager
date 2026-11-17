@@ -6,6 +6,23 @@ use tauri::{Emitter, Manager as TauriManager, State};
 use tauri_plugin_opener::OpenerExt;
 
 #[tauri::command]
+fn browser_connection(
+    connection: State<'_, ndm_browser_bridge::ConnectionState>,
+) -> ndm_browser_bridge::ConnectionStatus {
+    connection.status()
+}
+
+#[tauri::command]
+fn extension_guide(app: tauri::AppHandle) -> Result<(), String> {
+    app.opener()
+        .open_url(
+            "https://github.com/YeloBoi/next-download-manager/blob/main/docs/EXTENSION.md",
+            None::<&str>,
+        )
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn snapshot(manager: State<'_, Manager>) -> Snapshot {
     public_snapshot(manager.snapshot())
 }
@@ -120,7 +137,10 @@ async fn export_links(app: tauri::AppHandle, manager: State<'_, Manager>) -> Res
 
 fn main() {
     let result = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
+        .plugin(tauri_plugin_single_instance::init(|app, args, _| {
+            if args.iter().any(|arg| arg == "--browser-request") {
+                return;
+            }
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
                 let _ = window.set_focus();
@@ -133,7 +153,9 @@ fn main() {
             command,
             open_download,
             import_links,
-            export_links
+            export_links,
+            browser_connection,
+            extension_guide
         ])
         .setup(|app| {
             let data = dirs::data_local_dir()
@@ -154,8 +176,10 @@ fn main() {
                 }
             });
             let bridge_manager = manager.clone();
+            let connection = ndm_browser_bridge::ConnectionState::default();
+            app.manage(connection.clone());
             tauri::async_runtime::spawn(async move {
-                if let Err(error) = ndm_browser_bridge::serve(bridge_manager).await {
+                if let Err(error) = ndm_browser_bridge::serve(bridge_manager, connection).await {
                     eprintln!("Bridge stopped: {error}");
                 }
             });
@@ -196,6 +220,11 @@ fn main() {
                 _ => {}
             })
             .build(app)?;
+            if std::env::args().any(|arg| arg == "--browser-request") {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                }
+            }
             Ok(())
         })
         .on_window_event(|window, event| {

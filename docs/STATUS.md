@@ -1,5 +1,9 @@
 # Acceptance status
 
+Alpha.3 browser integration work is tracked in the complete
+[implementation ledger](IMPLEMENTATION_STATUS.md). Its new checks and release
+are pending; the hosted evidence below describes the published alpha.2 baseline.
+
 Development alpha. Version 0.1.0-alpha.2 adds the supplied brand assets, a custom
 rounded titlebar and no draft project LICENSE, as requested by the owner.
 Public source and pre-release distribution are authorized and published:

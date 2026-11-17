@@ -35,6 +35,8 @@ try {
     assert.equal(measurements.bar,'ltr','Window controls keep Windows ordering in RTL');
   };
   await check();
+  await page.getByText('Connect your browser',{exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'Get the extension',exact:true}).isDisabled(),true,'Web preview must not invent a desktop connection');
   await page.screenshot({path:'.artifacts/preview-en-dark.png'});
   await page.locator('[data-action="settings"]').click();
   await page.locator('[name="language"]').selectOption('fa');
@@ -43,6 +45,7 @@ try {
   await page.locator('[data-action="save-settings"]').click();
   assert.equal(await page.locator('html').getAttribute('dir'),'rtl');
   await page.locator('[data-filter="all"]').click();
+  await page.getByText('مرورگر را متصل کنید',{exact:true}).waitFor();
   await check();
   await page.screenshot({path:'.artifacts/preview-fa-light.png'});
   await page.getByRole('button',{name:'افزودن نخستین لینک',exact:true}).click();

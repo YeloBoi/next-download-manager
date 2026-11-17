@@ -3,5 +3,8 @@
 <h1 data-i18n="title">Send to NDM</h1><p id="connection" role="status"></p>
 <label for="urls" data-i18n="urls">Direct URLs, one per line</label><textarea id="urls" rows="4" dir="ltr" placeholder="https://example.com/file.zip"></textarea>
 <button id="extract" data-i18n="extract">Find links on this page</button><div id="links"></div>
+<button id="collect" data-i18n="collect">Add to selection</button>
+<div class="selection-heading"><h2 data-i18n="selection">Saved selection</h2><button id="clear" data-i18n="clear">Clear selection</button></div>
+<ol id="selection"></ol>
 <p id="result" role="status"></p><footer><button id="queue" data-i18n="queue">Add to queue</button><button id="now" class="primary" data-i18n="now">Download now</button></footer>
 <p class="hint" data-i18n="hint">Only selected links are shared. NDM does not read your cookies or browsing history.</p><script type="module" src="popup.js"></script></body></html>

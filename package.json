@@ -1,12 +1,12 @@
 {
   "name": "next-download-manager",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0-alpha.3",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite --config apps/desktop/vite.config.ts",
     "build": "tsc --noEmit && vite build --config apps/desktop/vite.config.ts",
-    "check": "tsc --noEmit && node --test tests/frontend.test.mjs tests/extension.test.mjs",
+    "check": "tsc --noEmit && node --test tests/frontend.test.mjs tests/extension.test.mjs tests/extension-worker.test.mjs",
     "desktop": "cd apps/desktop && tauri dev",
     "bundle": "cd apps/desktop && tauri build",
     "tauri": "tauri"

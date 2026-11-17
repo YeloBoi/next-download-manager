@@ -77,7 +77,8 @@ desktop app has been exercised and captured.
 
 ## Status and limitations
 
-See [acceptance status](docs/STATUS.md), [architecture](docs/ARCHITECTURE.md) and
+See the [complete implementation ledger and milestones](docs/IMPLEMENTATION_STATUS.md),
+[acceptance status](docs/STATUS.md), [architecture](docs/ARCHITECTURE.md) and
 [release notes](docs/RELEASE_NOTES.md). CI success is not proof of interactive
 desktop behavior, correct RTL rendering, clean-machine installation or complete
 crash resilience. These remain unverified acceptance criteria for this development alpha.

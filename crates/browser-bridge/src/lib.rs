@@ -5,6 +5,31 @@ use std::io::{Read, Write};
 pub const MAX_MESSAGE: usize = 256 * 1024;
 pub const HOST: &str = "local.ndm.bridge";
 
+#[derive(Clone, Default)]
+pub struct ConnectionState(std::sync::Arc<std::sync::Mutex<Option<std::time::Instant>>>);
+
+#[derive(Serialize)]
+pub struct ConnectionStatus {
+    pub seen: bool,
+    pub connected: bool,
+}
+
+impl ConnectionState {
+    fn record(&self) {
+        if let Ok(mut seen) = self.0.lock() {
+            *seen = Some(std::time::Instant::now());
+        }
+    }
+
+    pub fn status(&self) -> ConnectionStatus {
+        let seen = self.0.lock().ok().and_then(|seen| *seen);
+        ConnectionStatus {
+            seen: seen.is_some(),
+            connected: seen.is_some_and(|seen| seen.elapsed().as_secs() < 90),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Request {
@@ -36,6 +61,7 @@ impl Request {
             || self.urls.len() > 100
             || !["add", "ping"].contains(&self.kind.as_str())
             || (self.kind == "add" && self.urls.is_empty())
+            || (self.kind == "ping" && (!self.urls.is_empty() || self.start))
             || self.created_at > now + 30
             || now.saturating_sub(self.created_at) > 60
         {
@@ -81,7 +107,7 @@ pub fn bridge_directory() -> Result<std::path::PathBuf, String> {
 
 // Local spool files are scoped to the current Windows user's application-data directory.
 // A browser acknowledgement is written only after the queue's SQLite transaction commits.
-pub async fn serve(manager: ndm_queue::Manager) -> Result<(), String> {
+pub async fn serve(manager: ndm_queue::Manager, connection: ConnectionState) -> Result<(), String> {
     let directory = bridge_directory()?;
     tokio::fs::create_dir_all(&directory)
         .await
@@ -108,14 +134,12 @@ pub async fn serve(manager: ndm_queue::Manager) -> Result<(), String> {
                 let bytes = tokio::fs::read(&path).await.map_err(|e| e.to_string())?;
                 let request: Request = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
                 request.validate()?;
+                connection.record();
                 if request.kind == "add" {
                     manager
-                        .execute(ndm_queue::Action::Add {
+                        .execute(ndm_queue::Action::BrowserAdd {
                             urls: request.urls,
-                            directory: None,
-                            name: None,
                             start: request.start,
-                            sha256: None,
                         })
                         .await?;
                 }
@@ -152,6 +176,20 @@ pub async fn serve(manager: ndm_queue::Manager) -> Result<(), String> {
 mod tests {
     use super::*;
     #[test]
+    fn connection_status_requires_a_recent_valid_handshake() {
+        let state = ConnectionState::default();
+        assert!(!state.status().seen);
+        assert!(!state.status().connected);
+        state.record();
+        assert!(state.status().seen);
+        assert!(state.status().connected);
+        *state.0.lock().expect("state") =
+            Some(std::time::Instant::now() - std::time::Duration::from_secs(91));
+        assert!(state.status().seen);
+        assert!(!state.status().connected);
+    }
+
+    #[test]
     fn native_framing_and_invalid_requests() {
         let mut bytes = Vec::new();
         write_frame(&mut bytes, b"{}").expect("frame");
@@ -167,6 +205,21 @@ mod tests {
             created_at: 0,
         };
         assert!(request.validate().is_err());
+        let ping = Request {
+            version: 1,
+            request_id: "ping".into(),
+            kind: "ping".into(),
+            urls: vec!["https://example.com/a".into()],
+            start: false,
+            created_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("time")
+                .as_secs(),
+        };
+        assert!(
+            ping.validate().is_err(),
+            "a ping cannot carry download URLs"
+        );
         assert!(serde_json::from_str::<Request>(r#"{"version":1,"request_id":"a","urls":["https://example.com"],"start":false,"command":"calc"}"#).is_err());
     }
 }

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-alpha.3
+
+- Persist ordered multi-tab extension selections, with badges, move/remove, retained failed sends and serialized storage mutations.
+- Send context-menu downloads directly and launch only the sibling desktop executable on explicit browser requests.
+- Deduplicate browser batches in the queue actor, preserve batch order and respect durable user pause/stop/drain decisions.
+- Replace the fixed extension note with a bilingual card based on recent validated native handshakes and a real setup guide.
+- Preserve the full product brief and track all incomplete requirements in docs/IMPLEMENTATION_STATUS.md.
+- Add hosted queue, protocol, worker persistence and interface checks. Native installation/browser acceptance remains unverified.
+
 ## 0.1.0-alpha.2
 
 - Crop and apply the owner-supplied NDM logo variants across desktop, installer, tray, extension and documentation.

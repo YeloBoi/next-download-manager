@@ -167,15 +167,33 @@ pub fn within_schedule(minute: u16, start: u16, end: u16) -> bool {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Snapshot {
+    #[serde(default = "legacy_user_paused")]
+    pub user_paused: bool,
     pub downloads: Vec<Download>,
     pub settings: Settings,
     pub running: bool,
     pub draining: bool,
 }
 
+fn legacy_user_paused() -> bool {
+    // Older queues did not record stop intent; require an explicit start after migration.
+    true
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn legacy_queue_does_not_lose_an_explicit_user_stop() {
+        let value = serde_json::json!({
+            "downloads": [],
+            "settings": Settings::new(std::env::temp_dir()),
+            "running": false,
+            "draining": false,
+        });
+        let snapshot: Snapshot = serde_json::from_value(value).expect("legacy queue");
+        assert!(snapshot.user_paused);
+    }
     #[test]
     fn schedule_across_midnight() {
         assert!(within_schedule(30, 1380, 120));

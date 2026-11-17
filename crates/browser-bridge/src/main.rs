@@ -47,6 +47,25 @@ async fn run() -> Result<(), String> {
     )
     .await
     .map_err(|e| e.to_string())?;
+    // Launch only the sibling desktop executable, never a URL or a shell command.
+    // Pings do not start the application; only an explicit download request does.
+    if request.kind == "add" {
+        let desktop = std::env::current_exe()
+            .map_err(|e| e.to_string())?
+            .with_file_name("ndm.exe");
+        if let Err(error) = tokio::process::Command::new(desktop)
+            .arg("--browser-request")
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+        {
+            let _ = tokio::fs::remove_file(path.with_extension("request")).await;
+            return Err(format!(
+                "Could not open NDM: {error}. Keep ndm.exe beside the native host."
+            ));
+        }
+    }
     let started = std::time::Instant::now();
     loop {
         if let Ok(bytes) = tokio::fs::read(path.with_extension("response")).await {
@@ -62,7 +81,7 @@ async fn run() -> Result<(), String> {
                 &serde_json::to_vec(&response).map_err(|e| e.to_string())?,
             );
         }
-        if started.elapsed().as_secs() > 15 {
+        if started.elapsed().as_secs() > 30 {
             let _ = tokio::fs::remove_file(path.with_extension("request")).await;
             return Err("NDM did not acknowledge the request. Open the desktop app and try again; the browser download has been retained.".into());
         }

@@ -13,6 +13,7 @@ export function request(kind, urls = [], start = false) {
   return { version: 1, request_id: crypto.randomUUID(), kind, urls:kind==='add'?validateUrls(urls):[], start, created_at:Math.floor(Date.now()/1000) };
 }
 export async function sendNative(message) {
+  if (new TextEncoder().encode(JSON.stringify(message)).length > 256 * 1024) throw new Error('Selected links exceed the native message limit. Send a smaller batch.');
   const response = await chrome.runtime.sendNativeMessage('local.ndm.bridge', message);
   if (response?.version !== 1 || response.request_id !== message.request_id || typeof response.accepted !== 'boolean') throw new Error('Invalid response from NDM.');
   if (!response.accepted) throw new Error(response.error || 'NDM did not accept the request.');

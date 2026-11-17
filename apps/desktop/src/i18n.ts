@@ -1,4 +1,5 @@
 const en = {
+  connectBrowser:'Connect your browser', browserIntro:'Send downloads from Chrome or Edge directly to NDM.', browserConnected:'Browser connected', browserReady:'Chrome / Edge · Recent handshake received', browserDisconnected:'Browser extension disconnected', browserReconnect:'Open your browser to reconnect, or check extension setup.', getExtension:'Get the extension', checkBrowser:'Check connection', checkingBrowser:'Checking…', setupGuide:'Setup guide', manageExtension:'Manage extension', browserCheckHint:'Open the extension popup to check the connection. No recent handshake does not mean it is uninstalled.',
   windowControls:'Window controls', minimize:'Minimize', maximize:'Maximize', restore:'Restore window',
   all:'All downloads', downloading:'Downloading', connecting:'Connecting', queued:'Queued', paused:'Paused', stopped:'Stopped', completed:'Completed', failed:'Failed',
   settings:'Settings', add:'Add link', multiple:'Add multiple', start:'Start queue', pauseQueue:'Pause queue', stopQueue:'Stop queue', drain:'Stop after current',
@@ -26,6 +27,7 @@ const en = {
 } as const;
 type Key = keyof typeof en;
 const fa: Record<Key,string> = {
+  connectBrowser:'مرورگر را متصل کنید', browserIntro:'دانلودها را از Chrome یا Edge مستقیم به NDM بفرستید.', browserConnected:'مرورگر متصل است', browserReady:'Chrome / Edge · ارتباط معتبر اخیر', browserDisconnected:'ارتباط افزونه قطع شده است', browserReconnect:'مرورگر را باز کنید یا راهنمای اتصال افزونه را ببینید.', getExtension:'دریافت افزونه', checkBrowser:'بررسی اتصال', checkingBrowser:'در حال بررسی…', setupGuide:'راهنمای اتصال', manageExtension:'مدیریت افزونه', browserCheckHint:'برای بررسی ارتباط، پنجرهٔ افزونه را باز کنید. نبود ارتباط اخیر به معنی نصب‌نبودن افزونه نیست.',
   windowControls:'کنترل‌های پنجره', minimize:'کوچک کردن', maximize:'بزرگ کردن', restore:'بازگرداندن اندازهٔ پنجره',
   all:'همهٔ دانلودها', downloading:'در حال دانلود', connecting:'در حال اتصال', queued:'در صف', paused:'مکث‌شده', stopped:'متوقف‌شده', completed:'تکمیل‌شده', failed:'ناموفق',
   settings:'تنظیمات', add:'افزودن لینک', multiple:'افزودن گروهی', start:'شروع صف', pauseQueue:'مکث صف', stopQueue:'توقف صف', drain:'توقف پس از دانلودهای فعال',

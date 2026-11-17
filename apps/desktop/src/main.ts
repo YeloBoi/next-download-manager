@@ -27,6 +27,8 @@ let detailId: string | null = null;
 let settingsView = false;
 let detailOpen = true;
 let pending = false;
+let browserConnection = { seen:false, connected:false };
+let checkingBrowser = false;
 let toastTimer: ReturnType<typeof setTimeout>;
 const history = new Map<string, { time:number; speed:number }[]>();
 const filters: [string,string][] = [['all','download'],['downloading','play'],['queued','list'],['paused','pause'],['completed','check'],['failed','error']];
@@ -63,7 +65,7 @@ function shell() {
       <div class="nav-caption">${e(t('local'))}</div>
       <nav>${filters.map(([key,glyph]) => `<button data-filter="${key}" class="nav-item ${!settingsView&&filter===key?'current':''}" ${!settingsView&&filter===key?'aria-current="page"':''}>${icon(glyph)}<span>${e(t(key as Key))}</span><span class="nav-count">${countFor(key)}</span></button>`).join('')}</nav>
       <div class="sidebar-bottom">
-        <div class="extension-note">${icon('link')}<div><strong>${e(t('extension'))}</strong><small>${e(t('extensionHint'))}</small></div></div>
+        <section class="extension-note" id="browser-connection" aria-label="${e(t('extension'))}">${extensionMarkup()}</section>
         <button class="nav-item ${settingsView?'current':''}" data-action="settings">${icon('settings')}<span>${e(t('settings'))}</span></button>
         <div class="build-label"><span>${e(t('version'))}</span><span class="local-indicator">${icon('folder')}</span></div>
       </div>
@@ -194,6 +196,27 @@ function toast(message:string) {
   const target=document.querySelector<HTMLElement>('#toast')!; target.textContent=message;target.hidden=false;
   clearTimeout(toastTimer);toastTimer=setTimeout(()=>target.hidden=true,5000);
 }
+function extensionMarkup() {
+  const title:Key=browserConnection.connected?'browserConnected':browserConnection.seen?'browserDisconnected':'connectBrowser';
+  const hint:Key=browserConnection.connected?'browserReady':browserConnection.seen?'browserReconnect':'browserIntro';
+  return `${icon(browserConnection.connected?'check':'link')}<div><strong>${e(t(title))}</strong><small>${e(t(hint))}</small><div class="extension-actions">${button('extension-guide',browserConnection.connected?'manageExtension':browserConnection.seen?'setupGuide':'getExtension',undefined,!native?'disabled':'')}${button('check-browser',checkingBrowser?'checkingBrowser':'checkBrowser',undefined,!native||checkingBrowser?'disabled':'')}</div></div>`;
+}
+async function checkBrowser(manual=false) {
+  if(!native||checkingBrowser)return;
+  const previous={...browserConnection};
+  checkingBrowser=true;
+  const render=()=>{const card=document.querySelector('#browser-connection');if(card)card.innerHTML=extensionMarkup();};
+  if(manual)render();
+  try {
+    browserConnection=await invoke<typeof browserConnection>('browser_connection');
+    if(manual)toast(t(browserConnection.connected?'browserReady':'browserCheckHint'));
+  } catch { browserConnection.connected=false; }
+  finally {
+    checkingBrowser=false;
+    if(manual||previous.seen!==browserConnection.seen||previous.connected!==browserConnection.connected)render();
+    if(manual)document.querySelector<HTMLButtonElement>('[data-action="check-browser"]')?.focus();
+  }
+}
 async function execute(action:unknown) {
   if(!native){toast(t('webPreview'));return false;}
   try {state=await invoke<Snapshot>('command',{action});refresh();return true;}catch(error){toast(String(error));return false;}
@@ -289,6 +312,8 @@ document.addEventListener('click',async event=>{
   if(menu)menu.hidden=true;
   try {
     if(action==='add'||action==='multiple')showAdd(action==='multiple');
+    else if(action==='extension-guide')await invoke('extension_guide');
+    else if(action==='check-browser')await checkBrowser(true);
     else if(action==='close-add')document.querySelector<HTMLDialogElement>('#add-dialog')!.close();
     else if(action==='settings'){settingsView=true;root.classList.remove('nav-open');shell();}
     else if(action==='nav')root.classList.toggle('nav-open');
@@ -347,5 +372,7 @@ if(native){
     });
     await listen<string>('ndm://error',event=>toast(event.payload));
     state=await invoke<Snapshot>('snapshot');shell();
+    await checkBrowser();
+    setInterval(()=>{void checkBrowser();},5000);
   }catch(error){toast(`${t('backendError')} ${String(error)}`);}
 }

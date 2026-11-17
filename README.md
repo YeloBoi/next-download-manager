@@ -54,6 +54,8 @@ keep NDM open. Link extraction runs only when requested; links must be selected
 and sent explicitly. Automatic interception is not implemented and the extension
 does not request downloads, cookie or history permissions.
 
+[راهنمای فارسی نصب و اتصال افزونه](docs/EXTENSION.fa.md)
+
 ## Development (optional, not run on the owner's computer)
 
 Requires stable Rust with MSVC, Visual Studio C++ Build Tools and Windows SDK,

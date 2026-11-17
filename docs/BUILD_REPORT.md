@@ -1,5 +1,47 @@
 # Hosted Windows build evidence
 
+## 0.1.0-alpha.3 browser integration milestone
+
+- Source/tag: `bf04b0262daa07f971e5bf06261f394dfa5c73ed` / `v0.1.0-alpha.3`.
+- Successful Windows CI: https://github.com/YeloBoi/next-download-manager/actions/runs/44094938974
+- Tagged release workflow: https://github.com/YeloBoi/next-download-manager/actions/runs/44095875811
+- CI passed TypeScript, 8 Node tests, frontend production build, hosted Edge smoke
+  checks, Rust formatting, workspace check, warnings-denied all-target Clippy and
+  16 Rust tests. Native host, desktop release, NSIS installer, portable ZIP,
+  extension ZIP, checksums/notes and all five artifact uploads succeeded.
+- Tagged Windows build and the Ubuntu publish job both completed successfully.
+  The publish job verified every SHA256SUMS entry before uploading seven assets.
+- Public Latest endpoint verified as `v0.1.0-alpha.3`, release ID `448706071`:
+  https://github.com/YeloBoi/next-download-manager/releases/latest
+
+| Alpha 3 release asset | Bytes |
+| --- | ---: |
+| NDM_0.1.0-alpha.3_x64-setup.exe | 5,405,029 |
+| NDM-0.1.0-alpha.3-windows-x64-portable.zip | 9,285,569 |
+| NDM-0.1.0-alpha.3-chromium.zip | 37,574 |
+| preview-en-dark.png | 80,764 |
+| preview-fa-light.png | 74,979 |
+| SHA256SUMS | 566 |
+| RELEASE_NOTES.md | 2,207 |
+
+New tests cover canonical selection ordering/limits, serialized cross-tab mutations,
+service-worker restart with persistent storage, failed-send retention, context-menu
+dispatch, sender validation, native message size/correlation, handshake expiry,
+invalid ping payloads, legacy queue migration, atomic browser batches, deduplication
+and persisted explicit user pause across reopening. Worker tests use a mocked
+Chrome API; they are not evidence of an installed Chrome/Edge native connection.
+
+Hosted Edge checked the actual built desktop interface, including the bilingual
+unknown-connection card, existing brand assets, titlebar controls, theme, dialogs
+and overflow at 1440, 768 and 390px. This is browser rendering, not native window
+interaction. Native cold launch/focus, installed browser communication, extension
+registration and clean-machine Windows 10/11 installation remain unverified.
+
+All dependency installation, checks, compilation and packaging ran on GitHub.
+No release binaries, build dependencies or hosted preview images were downloaded
+onto the owner's machine. Local Rust formatting used the already installed formatter.
+Binaries remain unsigned. Full outstanding requirements: [implementation ledger](IMPLEMENTATION_STATUS.md).
+
 ## 0.1.0-alpha.2
 
 - Source/tag: `990526af88165f06840d8b21555b3e175c780c5a` / `v0.1.0-alpha.2`.

@@ -1,8 +1,12 @@
 # Acceptance status
 
-Alpha.3 browser integration work is tracked in the complete
-[implementation ledger](IMPLEMENTATION_STATUS.md). Its new checks and release
-are pending; the hosted evidence below describes the published alpha.2 baseline.
+Alpha.3 browser integration is implemented, hosted checks and packages passed,
+and seven release files are public at [Latest](https://github.com/YeloBoi/next-download-manager/releases/latest).
+This includes 16 Rust tests, 8 Node tests and bilingual desktop UI smoke checks.
+See the complete [implementation ledger](IMPLEMENTATION_STATUS.md),
+[build evidence](BUILD_REPORT.md) and [Persian extension setup](EXTENSION.fa.md).
+Native/browser/installer manual acceptance and advanced features remain open.
+The evidence below preserves the earlier alpha.2 baseline.
 
 Development alpha. Version 0.1.0-alpha.2 adds the supplied brand assets, a custom
 rounded titlebar and no draft project LICENSE, as requested by the owner.

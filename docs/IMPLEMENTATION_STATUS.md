@@ -14,7 +14,12 @@ The brief's original alpha.1 target has already been superseded by alpha.2.
 
 ## Current milestone: browser connection and persistent selection (alpha.3)
 
-Implemented, awaiting hosted validation:
+Implemented. Hosted Windows CI verified the added automated checks on source
+`bf04b0262daa07f971e5bf06261f394dfa5c73ed`: 16 Rust tests, 8 Node tests,
+TypeScript, Edge desktop UI smoke checks, fmt/check/Clippy and all Windows packages.
+Tagged build and checksum-verified publication also succeeded. Alpha.3 is public
+and verified as GitHub Latest. See [build evidence](BUILD_REPORT.md).
+Real native/browser/installer acceptance is not verified.
 
 - Genuine native-message heartbeat; desktop displays unknown, recent connection or
   expired connection. No inference that an extension is uninstalled. Last valid
@@ -52,7 +57,7 @@ desktop card smoke checks. Native-host launch and installed extension remain man
 | 4. FIFO, add while active, pause/stop/drain/resume/reorder/skip | Implemented | SQLite actor, drag/drop and controls. Prior fixture tests; browser stop persistence covered by new test. Separate partial/final-file deletion choices still needed. |
 | 5. Paths, names, .part, no overwrite, open/copy | Implemented | Sanitization and unique names. Disk space, non-NTFS publication and independent volume failures need completion. No arbitrary page/video extraction claim. |
 | 6. Desktop layout, themes, density, details, charts, menus, keyboard | Implemented | Existing app; hosted bilingual smoke evidence in alpha.2. New card added. Real DPI/accessibility/keyboard and installer acceptance remain manual. Groups/Later fields absent. |
-| 7. English/Persian and RTL | In progress | Central desktop translations and popup translations; technical data LTR. Backend errors and all documentation still need full translation; native shaping/manual checks pending. |
+| 7. English/Persian and RTL | In progress | Central desktop translations, popup translations and [Persian extension setup](EXTENSION.fa.md); technical data LTR. Backend errors and remaining documentation still need full translation; native shaping/manual checks pending. |
 | 8. Native protocol and minimal browser permissions | In progress | Bounded versioned messages, allowed origins, queue-commit acknowledgment. Separate accepted/started/completed per-link events, durable request-ID ledger, compatibility UX and automatic installer registration absent. No interception/cookie/history access. |
 | 9. Smart extension card and setup | Implemented | Real recent handshake and actual guide. Store publication absent; guide uses Load unpacked and explicit registration. No invented store links. |
 | 10. Context-menu download and collect | Implemented | Immediate send/cold sibling launch and collect action. Duplicate Show existing / Download again and browser/desktop notifications still needed; app-closed end-to-end test pending. |
@@ -72,12 +77,13 @@ desktop card smoke checks. Native-host launch and installed extension remain man
 | 20. Import/export and privacy | In progress | Text import/export with private-token confirmation, no telemetry. Group export schema, optional clipboard, data clearing and OS-protected secrets absent. |
 | 21. Public source, documents, rights, naming | In progress | Public GitHub, tagged source and third-party inventory. Prior LICENSE removal retained. No open-license grant or trademark clearance is claimed. Store publishing, rights review and full dependency audit remain. |
 | 22. Tests and CI | In progress | Hosted Windows fmt/check/clippy/tests/UI/build. Broader protocol, cancellation, disk-full, crash-kill, browser registration and clean Windows 10/11 tests pending. |
-| 23. Installer, portable, extension, notes, SHA256SUMS | Verified | Alpha.2 assets and hosted checks published; see [build evidence](BUILD_REPORT.md). Alpha.3 is not verified or released until its jobs pass. Binaries unsigned. |
+| 23. Installer, portable, extension, notes, SHA256SUMS | Verified | Alpha.3 checks, Windows packaging, checksum verification and seven release assets published; Latest verified. See [build evidence](BUILD_REPORT.md). Binaries unsigned; installed behavior still unverified. |
 | 24. Execution and truthful handoff | In progress | This ledger and the complete brief retain all outstanding requirements. No unexecuted test is marked passing. |
 
 ## Next executable milestones
 
-1. Finish and verify this browser milestone on hosted Windows, then publish alpha.3.
+1. Completed: browser milestone source, hosted Windows checks and alpha.3 Latest
+   publication. Complete its actual browser/native/installer manual acceptance next.
 2. Persistent Download Later/groups, actor-level group limits, priorities/fairness,
    per-item results and request-ID ledger, with controlled HTTP queue tests.
 3. Opt-in Windows startup/minimized and installer-owned registration/removal;

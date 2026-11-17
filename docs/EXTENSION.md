@@ -1,7 +1,11 @@
 # Chrome / Edge native messaging
 
-1. Download a successful GitHub build artifact and extract the portable ZIP and
-   extension ZIP. Keep `ndm-native-host.exe` beside `ndm.exe`.
+[راهنمای فارسی نصب و اتصال](EXTENSION.fa.md)
+
+1. Open the [latest release](https://github.com/YeloBoi/next-download-manager/releases/latest).
+   Install the Windows x64 `*-setup.exe`, or extract the portable ZIP. Also extract
+   the `*-chromium.zip` extension. Keep `ndm-native-host.exe` beside `ndm.exe`;
+   run the registration command from that installed or portable app folder.
 2. Open `chrome://extensions` or `edge://extensions`, enable Developer mode and
    choose **Load unpacked** for the extracted extension directory.
 3. Copy the displayed extension ID. Run the following yourself, replacing the ID:

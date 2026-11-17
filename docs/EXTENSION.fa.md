@@ -1,5 +1,25 @@
 # نصب و اتصال افزونهٔ NDM
 
+## فایرفاکس ۱۴۰ و جدیدتر
+
+از آخرین ریلیز فایل **firefox.zip** را بگیرید؛ فایل chromium.zip مخصوص Chrome و Edge است.
+در فایرفاکس `about:debugging#/runtime/this-firefox` را باز کنید، **Load Temporary Add-on**
+را بزنید و فایل ZIP یا manifest.json پوشهٔ استخراج‌شده را انتخاب کنید.
+این نسخه هنوز امضای Mozilla ندارد؛ نصب موقت است و با بستن و بازکردن فایرفاکس باید دوباره بارگذاری شود.
+تنظیمات امنیتی یا بررسی امضای فایرفاکس را غیرفعال نکنید.
+
+برای ارسال لینک به برنامه، NDM نسخهٔ **0.1.0-alpha.4 یا جدیدتر** لازم است.
+از پوشهٔ نصب یا نسخهٔ پرتابل، دستور زیر را با اسکریپت همراه برنامه اجرا کنید:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Register-NativeHost.ps1 -Browser Firefox -HostPath "$PWD\ndm-native-host.exe"
+```
+
+شناسهٔ افزونهٔ فایرفاکس ثابت است و لازم نیست چیزی کپی کنید. ثبت اتصال فایرفاکس، اتصال Chrome و Edge را پاک نمی‌کند.
+بستهٔ جدید از `background.scripts` استفاده می‌کند و خطای `background.service_worker is currently disabled` را برطرف می‌کند.
+
+## Chrome و Edge
+
 [English setup guide](EXTENSION.md)
 
 افزونه فعلاً نسخهٔ توسعه است و در فروشگاه Chrome یا Edge منتشر نشده است.

@@ -1,4 +1,27 @@
-# Chrome / Edge native messaging
+# Firefox / Chrome / Edge native messaging
+
+## Firefox (140 or later)
+
+Download the **firefox.zip** asset from the latest release, not chromium.zip.
+In Firefox open `about:debugging#/runtime/this-firefox`, select **Load Temporary
+Add-on**, and select the downloaded ZIP (or its extracted manifest.json).
+This development extension is unsigned: it remains installed until Firefox
+restarts. Permanent installation needs Mozilla signing, which has not been done.
+Do not disable signature enforcement or change Firefox security settings.
+
+For desktop delivery, update NDM to **0.1.0-alpha.4 or later**, then run this
+command from its installed/portable folder with the supplied registration script:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Register-NativeHost.ps1 -Browser Firefox -HostPath "$PWD\ndm-native-host.exe"
+```
+
+Firefox uses the fixed ID `ndm@yeloboi.github.io` and the current user's Mozilla
+native-host registry key. Registering Firefox preserves Chrome/Edge registration.
+The Chromium-only `background.service_worker` manifest cannot load in Firefox;
+the Firefox package instead supplies `background.scripts` with ES modules.
+
+## Chrome / Edge
 
 [راهنمای فارسی نصب و اتصال](EXTENSION.fa.md)
 

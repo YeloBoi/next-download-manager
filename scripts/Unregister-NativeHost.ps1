@@ -1,10 +1,10 @@
 $ErrorActionPreference = 'Stop'
-foreach ($browser in @('Google\Chrome','Microsoft\Edge')) {
+foreach ($browser in @('Google\Chrome','Microsoft\Edge','Mozilla')) {
   $key = "HKCU:\Software\$browser\NativeMessagingHosts\local.ndm.bridge"
   if (Test-Path -LiteralPath $key) { Remove-Item -LiteralPath $key }
 }
 $bridgeDirectory = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'NDM\bridge'
-foreach ($name in @('allowed-origins.json','local.ndm.bridge.json')) {
+foreach ($name in @('allowed-origins.json','local.ndm.bridge.json','local.ndm.bridge.firefox.json')) {
   $path = Join-Path $bridgeDirectory $name
   if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path }
 }

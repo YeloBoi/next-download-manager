@@ -4,7 +4,7 @@ use ndm_browser_bridge::{
 
 #[tokio::main]
 async fn main() {
-    // Chrome provides the caller origin. Do not accept invocations from unregistered IDs.
+    // Each browser supplies its caller identity differently.
     let result = run().await;
     if let Err(error) = result {
         let response = Response {
@@ -21,17 +21,33 @@ async fn main() {
 
 async fn run() -> Result<(), String> {
     let directory = bridge_directory()?;
-    let allowed: Vec<String> = serde_json::from_slice(
-        &tokio::fs::read(directory.join("allowed-origins.json"))
-            .await
-            .map_err(|_| {
-                "Native host is not registered. Follow the extension setup guide.".to_string()
-            })?,
-    )
-    .map_err(|e| e.to_string())?;
-    let origin = std::env::args().nth(1).ok_or("Missing browser origin.")?;
-    if !allowed.contains(&origin) {
-        return Err("This extension is not allowed to connect.".into());
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if firefox_caller(&args, &directory) {
+        let manifest: serde_json::Value = serde_json::from_slice(
+            &tokio::fs::read(directory.join("local.ndm.bridge.firefox.json"))
+                .await
+                .map_err(|_| "Register the Firefox native host first.".to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
+        let allowed = manifest["allowed_extensions"]
+            .as_array()
+            .is_some_and(|ids| ids.iter().any(|id| id.as_str() == Some(args[1].as_str())));
+        if !allowed {
+            return Err("This Firefox extension is not allowed to connect.".into());
+        }
+    } else {
+        let allowed: Vec<String> = serde_json::from_slice(
+            &tokio::fs::read(directory.join("allowed-origins.json"))
+                .await
+                .map_err(|_| {
+                    "Native host is not registered. Follow the extension setup guide.".to_string()
+                })?,
+        )
+        .map_err(|e| e.to_string())?;
+        let origin = args.first().ok_or("Missing browser origin.")?;
+        if !allowed.contains(origin) {
+            return Err("This extension is not allowed to connect.".into());
+        }
     }
     let bytes = read_frame(&mut std::io::stdin().lock())?;
     let request: Request = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
@@ -86,5 +102,38 @@ async fn run() -> Result<(), String> {
             return Err("NDM did not acknowledge the request. Open the desktop app and try again; the browser download has been retained.".into());
         }
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+}
+
+fn firefox_caller(args: &[String], directory: &std::path::Path) -> bool {
+    args.len() == 2
+        && std::path::Path::new(&args[0]) == directory.join("local.ndm.bridge.firefox.json")
+        && args[1] == "ndm@yeloboi.github.io"
+}
+
+#[cfg(test)]
+mod tests {
+    use super::firefox_caller;
+
+    #[test]
+    fn firefox_requires_registered_manifest_and_exact_addon_id() {
+        let dir = std::path::Path::new("bridge");
+        let manifest = dir
+            .join("local.ndm.bridge.firefox.json")
+            .to_string_lossy()
+            .into_owned();
+        assert!(firefox_caller(
+            &[manifest.clone(), "ndm@yeloboi.github.io".into()],
+            dir
+        ));
+        assert!(!firefox_caller(
+            &[manifest, "other@example.com".into()],
+            dir
+        ));
+        assert!(!firefox_caller(
+            &["unregistered.json".into(), "ndm@yeloboi.github.io".into()],
+            dir
+        ));
+        assert!(!firefox_caller(&[], dir));
     }
 }

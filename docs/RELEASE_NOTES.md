@@ -1,4 +1,12 @@
-﻿# NDM 0.1.0-alpha.3 — browser integration milestone
+# NDM 0.1.0-alpha.4 ? Firefox compatibility fix
+
+- Separate **firefox.zip** with module background scripts, fixing the disabled background.service_worker error.
+- Native Firefox Promise APIs, fixed add-on identity and native-host registration via -Browser Firefox.
+- Update the desktop/native host to alpha.4 for Firefox delivery. Chrome and Edge remain supported.
+- Firefox 140 or later. Unsigned development extension: use Load Temporary Add-on in about:debugging and reload after restarting Firefox. Permanent Mozilla signing is pending.
+- Hosted Firefox manifest/runtime checks gate publication alongside Windows checks.
+
+The browser-integration features from alpha.3 remain:
 
 Development alpha, not stable; this milestone does not complete the full product brief.
 

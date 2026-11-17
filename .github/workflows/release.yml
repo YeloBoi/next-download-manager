@@ -5,6 +5,8 @@ on:
 permissions:
   contents: read
 jobs:
+  firefox:
+    uses: ./.github/workflows/firefox.yml
   verify-and-build:
     runs-on: windows-2022
     timeout-minutes: 60
@@ -49,7 +51,7 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
   publish:
-    needs: verify-and-build
+    needs: [verify-and-build, firefox]
     runs-on: ubuntu-latest
     permissions:
       contents: write

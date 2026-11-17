@@ -10,6 +10,8 @@ concurrency:
   group: windows-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  firefox:
+    uses: ./.github/workflows/firefox.yml
   windows:
     runs-on: windows-2022
     timeout-minutes: 60
@@ -63,6 +65,13 @@ jobs:
         with:
           name: ndm-chromium-extension
           path: .artifacts/*chromium.zip
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ndm-firefox-extension
+          path: .artifacts/*firefox.zip
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 14

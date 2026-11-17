@@ -12,7 +12,7 @@ The successful hosted build and downloadable artifacts are recorded in
 
 Download the [latest release](https://github.com/YeloBoi/next-download-manager/releases/latest)
 from **Releases → Assets**. For installation, choose
-the Windows x64 `*-setup.exe` installer. The portable ZIP, Chromium extension,
+the Windows x64 `*-setup.exe` installer. The portable ZIP, Chromium and Firefox extensions,
 SHA256SUMS and release notes are separate assets.
 
 All dependency installation, Rust compilation, tests and packaging run in

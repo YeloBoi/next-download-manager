@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-test('worker serializes cross-tab selections, preserves failed sends and survives suspension',async()=>{
+for (const namespace of ['chrome','browser']) test(`${namespace} background serializes selections, preserves failed sends and survives suspension`,async()=>{
   let stored={};let fail=true;const sent=[];let events={};
   const boot=async(index)=>{
     events={};
     const event=name=>({addListener:listener=>{events[name]=listener;}});
-    globalThis.chrome={
+    globalThis[namespace]={
       runtime:{id:'ndm-test',getURL:path=>'chrome-extension://ndm-test/'+path,
         onInstalled:event('installed'),onStartup:event('startup'),onMessage:event('message'),
         sendNativeMessage:async(_host,message)=>{if(fail)throw new Error('offline');sent.push(message);return {version:1,request_id:message.request_id,accepted:true};}},
@@ -15,7 +15,7 @@ test('worker serializes cross-tab selections, preserves failed sends and survive
       action:{setBadgeText:async()=>{},setBadgeBackgroundColor:async()=>{}},
       alarms:{create:async()=>{},onAlarm:event('alarm')},
     };
-    await import(`../extensions/chromium/background.js?test=${index}`);
+    await import(`../extensions/chromium/background.js?test=${namespace}-${index}`);
   };
   const call=(operation,values={})=>new Promise(resolve=>events.message({type:'selection',operation,...values},{id:'ndm-test',url:'chrome-extension://ndm-test/popup.html'},resolve));
   await boot(1);
@@ -41,5 +41,5 @@ test('worker serializes cross-tab selections, preserves failed sends and survive
   let replied=false;
   events.message({type:'selection',operation:'clear'},{id:'ndm-test',url:'https://untrusted.test/'},()=>{replied=true;});
   assert.equal(replied,false);
-  delete globalThis.chrome;
+  delete globalThis[namespace];
 });

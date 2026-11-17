@@ -3,6 +3,24 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { validateUrls, request, sendNative } from '../extensions/chromium/protocol.js';
 import { mergeSelection, changeSelection } from '../extensions/chromium/selection.js';
+import { extensionApi } from '../extensions/chromium/api.js';
+
+test('Firefox manifest uses module background scripts and a fixed native messaging ID',async()=>{
+  const firefox=JSON.parse(await readFile(new URL('../extensions/firefox/manifest.json',import.meta.url)));
+  const chromium=JSON.parse(await readFile(new URL('../extensions/chromium/manifest.json',import.meta.url)));
+  assert.deepEqual(firefox.background,{scripts:['background.js'],type:'module'});
+  assert.equal(firefox.browser_specific_settings.gecko.id,'ndm@yeloboi.github.io');
+  assert.equal(firefox.background.service_worker,undefined);
+  assert.equal(firefox.minimum_chrome_version,undefined);
+  assert.equal(firefox.version,chromium.version);
+  assert.deepEqual(firefox.permissions,chromium.permissions);
+  globalThis.browser={runtime:{firefox:true}};
+  globalThis.chrome={runtime:{chromium:true}};
+  assert.equal(extensionApi(),globalThis.browser);
+  delete globalThis.browser;
+  assert.equal(extensionApi(),globalThis.chrome);
+  delete globalThis.chrome;
+});
 
 test('native protocol rejects credentials, unsupported schemes, duplicates and large batches',()=>{
   for(const urls of [[],['file:///etc/passwd'],['https://user:secret@example.com'],['https://a.test/','https://a.test/'],Array(101).fill('https://a.test/')])assert.throws(()=>validateUrls(urls));

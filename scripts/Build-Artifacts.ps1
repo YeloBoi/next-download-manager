@@ -32,6 +32,11 @@ Copy-Item (Join-Path $out 'THIRD_PARTY_LICENSES') -Destination $portable -Recurs
 Compress-Archive -Path "$portable/*" -DestinationPath "$out/NDM-$version-windows-x64-portable.zip" -Force
 Copy-Item target/release/bundle/nsis/*.exe -Destination $out
 Compress-Archive -Path extensions/chromium/* -DestinationPath "$out/NDM-$version-chromium.zip" -Force
+$firefox = Join-Path $out 'firefox'
+New-Item -ItemType Directory -Path $firefox -Force | Out-Null
+Copy-Item extensions/chromium/* -Destination $firefox -Recurse -Force
+Copy-Item extensions/firefox/manifest.json -Destination (Join-Path $firefox 'manifest.json') -Force
+Compress-Archive -Path "$firefox/*" -DestinationPath "$out/NDM-$version-firefox.zip" -Force
 Copy-Item docs/RELEASE_NOTES.md -Destination $out
 $hashes = Get-ChildItem $out -File | Where-Object Name -ne 'SHA256SUMS' | ForEach-Object {
   $hash = Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256

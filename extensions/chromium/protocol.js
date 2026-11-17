@@ -1,3 +1,5 @@
+import { extensionApi } from './api.js';
+
 export function validateUrls(urls) {
   if (!Array.isArray(urls) || urls.length < 1 || urls.length > 100) throw new Error('Select between 1 and 100 links.');
   const normalized = urls.map(input => {
@@ -14,7 +16,7 @@ export function request(kind, urls = [], start = false) {
 }
 export async function sendNative(message) {
   if (new TextEncoder().encode(JSON.stringify(message)).length > 256 * 1024) throw new Error('Selected links exceed the native message limit. Send a smaller batch.');
-  const response = await chrome.runtime.sendNativeMessage('local.ndm.bridge', message);
+  const response = await extensionApi().runtime.sendNativeMessage('local.ndm.bridge', message);
   if (response?.version !== 1 || response.request_id !== message.request_id || typeof response.accepted !== 'boolean') throw new Error('Invalid response from NDM.');
   if (!response.accepted) throw new Error(response.error || 'NDM did not accept the request.');
   return response;

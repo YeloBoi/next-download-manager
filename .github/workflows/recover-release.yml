@@ -1,0 +1,67 @@
+name: Retry release publication
+on:
+  workflow_dispatch:
+    inputs:
+      build:
+        description: Tagged release run ID with passing build jobs
+        type: string
+        required: true
+      tag:
+        description: Existing tag that matches the build
+        type: string
+        required: true
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ inputs.tag }}
+      BUILD_RUN: ${{ inputs.build }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify successful jobs from the exact tag
+        id: verify
+        run: |
+          set -euo pipefail
+          [[ "$BUILD_RUN" =~ ^[0-9]+$ ]]
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]
+          git fetch --no-tags origin "refs/tags/$RELEASE_TAG"
+          sha=$(git rev-parse 'FETCH_HEAD^{commit}')
+          gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN" |
+            jq -e --arg sha "$sha" --arg tag "$RELEASE_TAG" '.head_sha == $sha and .head_branch == $tag and .path == ".github/workflows/release.yml" and .event == "push" and .conclusion == "failure"'
+          gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN/jobs" |
+            jq -e '([.jobs[] | select(.conclusion == "success") | .name] | sort) == ["android / android","firefox / firefox","verify-and-build"] and any(.jobs[]; .name == "publish" and .conclusion == "failure")'
+          git worktree add --detach built-source "$sha"
+          echo "signed=$(gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN/artifacts" --jq 'any(.artifacts[]; .name == "ndm-firefox-signed" and (.expired | not))')" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-files
+          path: release-files
+          run-id: ${{ inputs.build }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: ndm-android-release
+          path: release-files
+          run-id: ${{ inputs.build }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        if: steps.verify.outputs.signed == 'true'
+        with:
+          name: ndm-firefox-signed
+          path: release-files
+          run-id: ${{ inputs.build }}
+          github-token: ${{ github.token }}
+      - name: Generate update feeds from the tagged source
+        working-directory: built-source
+        run: node ../scripts/Release-UpdateFeeds.mjs "$RELEASE_TAG" ../release-files
+      - name: Publish latest release
+        run: bash scripts/Publish-Release.sh release-files

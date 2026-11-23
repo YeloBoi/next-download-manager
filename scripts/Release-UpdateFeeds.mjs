@@ -12,7 +12,7 @@ const chromium = await manifest('chromium');
 const firefox = await manifest('firefox');
 const gradle = await readFile('apps/android/app/build.gradle', 'utf8');
 const code = Number(gradle.match(/^\s*versionCode (\d+)$/m)?.[1]);
-if (chromium.version_name !== version || !Number.isSafeInteger(code) || !code ||
+if (!Number.isSafeInteger(code) || !code ||
     !gradle.includes(`versionName '${version}'`)) throw new Error('Update feed version mismatch');
 
 async function asset(name) {

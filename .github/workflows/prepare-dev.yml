@@ -38,5 +38,6 @@ jobs:
           cache-on-failure: true
       - run: npm ci --include=optional
       - run: npm run check
+      - run: cargo update --workspace
       - if: always()
         run: cargo clippy --workspace --all-targets --locked -- -D warnings

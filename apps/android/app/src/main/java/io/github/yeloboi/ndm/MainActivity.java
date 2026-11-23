@@ -321,7 +321,7 @@ public final class MainActivity extends Activity {
             String raw=field.getText().toString().trim();
             try{PhoneDownloads.link(raw);}catch(Exception e){field.setError(e.getMessage());return;}
             dialog.dismiss();
-            if(pc)run(()->client.control("add",null,List.of(raw)));
+            if(pc)run(()->client.control("add",null,Collections.singletonList(raw)));
             else run(()->{PhoneDownloads.Preview preview=PhoneDownloads.preview(raw);main.post(()->reviewPhone(raw,preview));});
         });
     }

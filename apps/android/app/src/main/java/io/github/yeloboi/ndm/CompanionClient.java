@@ -4,6 +4,8 @@ import android.app.*;
 import android.content.*;
 import android.database.Cursor;
 import android.net.Uri;
+import android.net.nsd.NsdManager;
+import android.net.nsd.NsdServiceInfo;
 import android.provider.OpenableColumns;
 import org.json.*;
 import java.io.*;
@@ -34,6 +36,7 @@ final class CompanionClient {
     private final Set<String> canceled=ConcurrentHashMap.newKeySet();
     private final Set<String> selected=ConcurrentHashMap.newKeySet();
     private volatile long syncAt=0;
+    private volatile long discoverAt=0;
 
     private CompanionClient(Context context){
         this.context=context;
@@ -67,6 +70,7 @@ final class CompanionClient {
     void pair(String qr,String label,boolean remember) throws Exception {
         PcLink paired=PcLink.pair(qr,id,label.length()>64?label.substring(0,64):label,remember);
         if(remember)paired.save(context);else PcLink.forget(context);
+        prefs.edit().putBoolean("remember",remember).apply();
         PcLink prior=pc;
         if(prior==null||!prior.pin.equals(paired.pin))
             prefs.edit().remove("pendingPC").remove("completedPC").remove("pcBaseline").remove("seenOffers").commit();
@@ -127,9 +131,56 @@ final class CompanionClient {
             if(pc!=link)return;
             if(error instanceof PcLink.HttpFailure&&((PcLink.HttpFailure)error).code==401){
                 PcLink.forget(context);pc=null;downloads=new JSONArray();transfers=new JSONArray();usage=new JSONArray();issue="Access ended. Pair again on the PC.";
-            } else issue="PC unavailable. Check that both devices are on the same network and NDM is open.";
+            } else {
+                issue="PC unavailable. Check that both devices are on the same network and NDM is open.";
+                discover(link);
+            }
             online=false;
         }
+    }
+
+    private void discover(PcLink link){
+        long now=android.os.SystemClock.elapsedRealtime();
+        if(now<discoverAt)return;
+        discoverAt=now+20000;
+        NsdManager nsd=context.getSystemService(NsdManager.class);
+        if(nsd==null)return;
+        NsdManager.DiscoveryListener discovery=new NsdManager.DiscoveryListener(){
+            private boolean tried=false;
+            public void onDiscoveryStarted(String type){}
+            public void onStartDiscoveryFailed(String type,int code){}
+            public void onStopDiscoveryFailed(String type,int code){}
+            public void onDiscoveryStopped(String type){}
+            public void onServiceLost(NsdServiceInfo info){}
+            @SuppressWarnings("deprecation")
+            public void onServiceFound(NsdServiceInfo info){
+                if(tried||pc!=link||!info.getServiceName().equalsIgnoreCase("ndm-"+link.pin.substring(0,16)))return;
+                tried=true;
+                nsd.resolveService(info,new NsdManager.ResolveListener(){
+                    public void onResolveFailed(NsdServiceInfo ignored,int code){tried=false;}
+                    public void onServiceResolved(NsdServiceInfo resolved){
+                        java.net.InetAddress ip=resolved.getHost();
+                        if(!(ip instanceof java.net.Inet4Address)||resolved.getPort()!=42672){tried=false;return;}
+                        String address=ip.getHostAddress()+":"+resolved.getPort();
+                        if(address.equals(link.host))return;
+                        commands.execute(()->{
+                            try{
+                                PcLink candidate=link.at(address);
+                                candidate.object("GET","/status",null);
+                                if(pc==link){
+                                    if(prefs.getBoolean("remember",false))candidate.save(context);
+                                    pc=candidate;
+                                }
+                            }catch(Exception ignored){}
+                        });
+                    }
+                });
+            }
+        };
+        try {
+            nsd.discoverServices("_ndm._tcp.",NsdManager.PROTOCOL_DNS_SD,discovery);
+            poller.schedule(()->{try{nsd.stopServiceDiscovery(discovery);}catch(IllegalArgumentException ignored){}},10,TimeUnit.SECONDS);
+        }catch(RuntimeException ignored){}
     }
 
     private File dir(String name)throws IOException{

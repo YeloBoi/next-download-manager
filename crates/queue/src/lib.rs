@@ -39,6 +39,9 @@ pub enum Action {
     Stop {
         id: String,
     },
+    StopOne {
+        id: String,
+    },
     Resume {
         id: String,
     },
@@ -470,12 +473,19 @@ impl Actor {
                 }
                 self.snapshot.downloads[index].resume_with_queue = !continue_queue;
             }
-            Action::Stop { id } => {
+            action @ (Action::Stop { .. } | Action::StopOne { .. }) => {
+                let (id, stop_queue) = match action {
+                    Action::Stop { id } => (id, true),
+                    Action::StopOne { id } => (id, false),
+                    _ => unreachable!(),
+                };
                 let index = self.job_index(&id)?;
                 if self.snapshot.downloads[index].status == Status::Completed {
                     return Err("A completed file cannot be stopped.".into());
                 }
-                self.snapshot.running = false;
+                if stop_queue {
+                    self.snapshot.running = false;
+                }
                 if let Some(active) = self.active.get_mut(&id) {
                     active.after = Status::Stopped;
                     active.cancel.cancel();

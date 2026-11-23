@@ -25,7 +25,7 @@ use tokio::{
 use uuid::Uuid;
 
 const PORT: u16 = 42672;
-const CHUNK: usize = 256 * 1024;
+const CHUNK: usize = 512 * 1024;
 const MAX_FILE: u64 = 128 * 1024 * 1024 * 1024;
 const PAIR_SECONDS: u64 = 120;
 const SESSION_SECONDS: u64 = 12 * 60 * 60;
@@ -173,6 +173,8 @@ struct Runtime {
     pair: Option<(String, u64)>,
     server: Option<axum_server::Handle<SocketAddr>>,
     fingerprint: String,
+    discovery: Option<(mdns_sd::ServiceDaemon, String)>,
+    port: u16,
 }
 
 #[derive(Clone)]
@@ -180,6 +182,7 @@ pub struct Companion {
     inner: Arc<Mutex<Runtime>>,
     dir: PathBuf,
     manager: Manager,
+    bind_port: u16,
 }
 
 impl Companion {
@@ -197,6 +200,7 @@ impl Companion {
             })),
             dir,
             manager,
+            bind_port: PORT,
         };
         if startup {
             if let Err(error) = state.enable(true).await {
@@ -269,7 +273,8 @@ impl Companion {
                 rustls::pki_types::PrivatePkcs8KeyDer::from(key).into(),
             )
             .map_err(err)?;
-            let socket = std::net::TcpListener::bind((Ipv4Addr::UNSPECIFIED, PORT)).map_err(err)?;
+            let socket = std::net::TcpListener::bind((Ipv4Addr::UNSPECIFIED, self.bind_port)).map_err(err)?;
+            let port = socket.local_addr().map_err(err)?.port();
             socket.set_nonblocking(true).map_err(err)?;
             let routes = Router::new()
                 .route("/pair", post(pair))
@@ -286,7 +291,7 @@ impl Companion {
                 .route("/transfer/{id}/chunk", get(read_chunk).post(write_chunk))
                 .route("/transfer/{id}/ack", post(acknowledge))
                 .route("/device", delete(disconnect))
-                .layer(DefaultBodyLimit::max(CHUNK + 16 * 1024))
+                .layer(DefaultBodyLimit::max(1024 * 1024))
                 .with_state(self.clone());
             let handle = axum_server::Handle::new();
             state.saved.enabled = true;
@@ -294,7 +299,14 @@ impl Companion {
                 state.saved.enabled = false;
                 return Err(error);
             }
+            if self.bind_port == PORT {
+                match advertise(&fingerprint, port) {
+                    Ok(discovery) => state.discovery = Some(discovery),
+                    Err(error) => eprintln!("Phone discovery: {error}"),
+                }
+            }
             state.fingerprint = fingerprint;
+            state.port = port;
             state.server = Some(handle.clone());
             tokio::spawn(async move {
                 match axum_server::from_tcp_rustls(
@@ -318,6 +330,10 @@ impl Companion {
             self.save(&state.saved).await?;
             state.online.clear();
             state.pair = None;
+            if let Some((daemon, name)) = state.discovery.take() {
+                let _ = daemon.unregister(&name);
+                let _ = daemon.shutdown();
+            }
             if let Some(handle) = state.server.take() {
                 handle.shutdown();
             }
@@ -490,7 +506,7 @@ async fn download(
             id: id.to_string(),
             continue_queue: true,
         },
-        Control::Stop { id } => Action::Stop { id: id.to_string() },
+        Control::Stop { id } => Action::StopOne { id: id.to_string() },
         Control::Remove { id } => Action::Remove {
             id: id.to_string(),
             delete_files: false,
@@ -773,6 +789,19 @@ async fn acknowledge(
     Ok(StatusCode::NO_CONTENT)
 }
 
+fn advertise(fingerprint: &str, port: u16) -> Result<(mdns_sd::ServiceDaemon, String)> {
+    let label = format!("ndm-{}", &fingerprint[..16]);
+    let info = mdns_sd::ServiceInfo::new("_ndm._tcp.local.", &label, &format!("{label}.local."), "", port, None)
+        .map_err(err)?.enable_addr_auto();
+    let fullname = info.get_fullname().to_string();
+    let daemon = mdns_sd::ServiceDaemon::new().map_err(err)?;
+    if let Err(error) = daemon.register(info) {
+        let _ = daemon.shutdown();
+        return Err(err(error));
+    }
+    Ok((daemon, fullname))
+}
+
 fn local_ip() -> Result<Ipv4Addr> {
     let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).map_err(err)?;
     socket
@@ -799,7 +828,7 @@ pub async fn companion_pair(companion: tauri::State<'_, Companion>) -> Result<se
     if state.server.is_none() {
         return Err("Enable phone connection first.".into());
     }
-    let host = format!("{}:{}", local_ip()?, PORT);
+    let host = format!("{}:{}", local_ip()?, state.port);
     let expires = now() + PAIR_SECONDS;
     let code = secret();
     let data = format!(

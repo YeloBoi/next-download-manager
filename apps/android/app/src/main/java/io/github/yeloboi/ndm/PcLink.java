@@ -20,7 +20,7 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.net.ssl.*;
 
 final class PcLink {
-    static final int CHUNK = 256 * 1024;
+    static final int CHUNK = 512 * 1024;
     private static final String ALIAS = "ndm.companion.session";
     final String host;
     final String pin;
@@ -60,6 +60,8 @@ final class PcLink {
         if (!token.matches("[a-f0-9]{64}")) throw new IOException("Invalid pairing response.");
         return new PcLink(handshake.host,handshake.pin,token);
     }
+
+    PcLink at(String address) throws Exception { return new PcLink(address,pin,token); }
 
     JSONObject object(String method, String path, JSONObject data) throws Exception {
         byte[] result = request(method,path,data==null?null:data.toString().getBytes(StandardCharsets.UTF_8),"application/json",8*1024*1024);

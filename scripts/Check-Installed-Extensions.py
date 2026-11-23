@@ -104,16 +104,20 @@ def verify_file(filename):
     assert file.is_file() and hashlib.sha256(file.read_bytes()).digest() == hashlib.sha256(DATA).digest(), filename
 
 
-def stop_desktop():
-    subprocess.run(['taskkill', '/im', 'ndm.exe', '/f'], stdout=subprocess.DEVNULL,
-                   stderr=subprocess.DEVNULL, timeout=15, check=False)
-
-
-def print_native_processes():
+def native_processes():
     processes = subprocess.run(['tasklist', '/fo', 'csv'], capture_output=True, text=True, timeout=10, check=True)
-    for line in processes.stdout.splitlines():
-        if line.lower().startswith(('"ndm.exe"', '"ndm-native-host.exe"')):
-            print(f'Native processes: {line}', flush=True)
+    return [line for line in processes.stdout.splitlines()
+            if line.lower().startswith(('"ndm.exe"', '"ndm-native-host.exe"'))]
+
+
+def stop_desktop(force=False):
+    args = ['taskkill', '/im', 'ndm.exe']
+    subprocess.run(args + (['/f'] if force else []), stdout=subprocess.DEVNULL,
+                   stderr=subprocess.DEVNULL, timeout=15, check=False)
+    deadline = time.monotonic() + 12
+    while any(line.lower().startswith('"ndm.exe"') for line in native_processes()):
+        assert time.monotonic() < deadline, 'Desktop did not shut down'
+        time.sleep(0.25)
 
 
 def native_probe(driver, kind='ping', url=None):
@@ -155,7 +159,8 @@ def check(name, chromium, firefox, base, log):
             popup_download(driver, f'{base}/{cold}', 'now')
         except AssertionError as error:
             print(f'{name} popup error: {error}; HTTP request observed: {f"/{cold}" in RECEIVED}', flush=True)
-            print_native_processes()
+            for process in native_processes():
+                print(f'Native processes: {process}', flush=True)
             if STARTUP_LOG.is_file():
                 print(STARTUP_LOG.read_text(encoding='utf-8', errors='replace'), flush=True)
             try:
@@ -177,11 +182,11 @@ def check(name, chromium, firefox, base, log):
         wait.until(lambda d: not d.find_elements(By.CSS_SELECTOR, '#selection li details'))
         print(f'{name} passed: installer registration, actual offline cold launch, automatic connection, queue-only, start existing queue item and complete files.', flush=True)
     finally:
-        driver.quit()
         stop_desktop()
+        driver.quit()
 
 
-with tempfile.TemporaryDirectory(prefix='ndm-extensions-') as temporary:
+with tempfile.TemporaryDirectory(prefix='ndm-extensions-', ignore_cleanup_errors=True) as temporary:
     root = Path(temporary)
     install = root / 'installed'
     setup, = ARTIFACTS.glob('*-setup.exe')
@@ -200,7 +205,7 @@ with tempfile.TemporaryDirectory(prefix='ndm-extensions-') as temporary:
             base = f'http://127.0.0.1:{server.server_address[1]}'
             try:
                 failures = []
-                for name in ('Chrome', 'Edge', 'Firefox'):
+                for name in ('Firefox', 'Chrome', 'Edge'):
                     log = root / f'{name}.log'
                     try:
                         check(name, chromium, firefox, base, log)
@@ -214,7 +219,7 @@ with tempfile.TemporaryDirectory(prefix='ndm-extensions-') as temporary:
             finally:
                 server.shutdown()
     finally:
-        stop_desktop()
+        stop_desktop(force=True)
         subprocess.run(['taskkill', '/im', 'ndm-native-host.exe', '/f'], stdout=subprocess.DEVNULL,
                        stderr=subprocess.DEVNULL, timeout=15, check=False)
         subprocess.run([str(install / 'uninstall.exe'), '/S'], timeout=60, check=True)

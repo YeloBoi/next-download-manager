@@ -61,12 +61,19 @@ try {
   await desktop.addInitScript(()=>{
     window.isTauri=true;
     window.ndmTestConnection={seen:false,connected:false};
+    window.ndmInvocations=[];
     window.__TAURI_INTERNALS__={
       metadata:{currentWindow:{label:'main'}},
       transformCallback:()=>1,
-      invoke:async(command)=>{
+      invoke:async(command,args)=>{
+        window.ndmInvocations.push([command,args]);
         if(command==='browser_connection')return {...window.ndmTestConnection};
-        if(command==='snapshot')return {downloads:[],running:false,draining:false,settings:{directory:'C:\\Downloads',language:'en',theme:'dark',compact:false,concurrent_downloads:1,connections_per_file:1,global_connections:16,host_connections:8,speed_limit:0,resume_on_launch:false,stop_on_error:false,schedule_enabled:false,schedule_start:0,schedule_end:0,close_to_tray:false}};
+        if(command==='snapshot'||command==='command')return {downloads:[],running:false,draining:false,settings:{directory:'C:\\Downloads',language:'en',theme:'dark',compact:false,concurrent_downloads:1,connections_per_file:1,global_connections:16,host_connections:8,speed_limit:0,resume_on_launch:false,stop_on_error:false,schedule_enabled:false,schedule_start:0,schedule_end:0,close_to_tray:false,confirmless_add:false}};
+        if(command==='preview_download')return {name:'Test archive.zip',total:10240,resumable:true,directory:'C:\\Downloads\\Archives'};
+        if(command==='check_update')return {version:'0.2.0',notes:'A new build',installable:true,portable:false};
+        if(command==='companion_view')return {enabled:true,devices:[{id:'demo',name:'Android phone',online:true}],transfers:[]};
+        if(command==='companion_pair')return {path:'M4 4h1v1z',size:20,host:'192.168.1.12:42672',expires:Math.floor(Date.now()/1000)+120};
+        if(command==='download_usage')return [{device:'pc',hour:Math.floor(Date.now()/3600000),bytes:1024,category:'archives'},{device:'mobile',hour:Math.floor(Date.now()/3600000),bytes:2048,category:'images'}];
         if(command==='plugin:event|listen')return 1;
         if(command==='plugin:window|is_maximized')return false;
         throw new Error(`Unexpected desktop fixture command: ${command}`);
@@ -74,12 +81,32 @@ try {
     };
   });
   await desktop.goto('http://127.0.0.1:4173');
+  await desktop.locator('#update-banner').getByText('v0.2.0').waitFor();
+  await desktop.getByRole('button',{name:"What's New",exact:true}).click();
+  await desktop.getByRole('dialog').getByText('A new build').waitFor();
+  await desktop.getByRole('dialog').getByRole('button',{name:'Close',exact:true}).click();
+  await desktop.getByRole('button',{name:'Later',exact:true}).click();
+  await desktop.locator('#update-banner').waitFor({state:'hidden'});
+  await desktop.locator('#update-marker').waitFor({state:'visible'});
+  await desktop.getByRole('button',{name:'Add your first link',exact:true}).click();
+  await desktop.locator('[name="urls"]').fill('https://example.com/archive.zip');
+  await desktop.getByText('Test archive.zip',{exact:true}).waitFor();
+  assert.equal(await desktop.locator('#add-form [name="directory"]').inputValue(),'C:\\Downloads\\Archives');
+  await desktop.getByRole('button',{name:'Download now',exact:true}).click();
+  await desktop.locator('#add-dialog').waitFor({state:'hidden'});
+  assert.equal(await desktop.evaluate(()=>window.ndmInvocations.find(([name])=>name==='command')[1].action.start),true);
   await desktop.locator('[data-action="check-browser"]:enabled').waitFor();
   await desktop.evaluate(()=>{window.ndmTestConnection={seen:true,connected:true};});
   await desktop.locator('[data-action="check-browser"]').click();
   await desktop.locator('#browser-connection').waitFor({state:'hidden'});
   assert.equal(await desktop.locator('#browser-connection').innerText(),'','Connected card content is removed');
   await desktop.locator('[data-action="settings"]').click();
+  await desktop.getByText('Android phone',{exact:true}).waitFor();
+  await desktop.getByRole('button',{name:'Show pairing QR',exact:true}).click();
+  await desktop.getByRole('img',{name:'Show pairing QR'}).waitFor();
+  await desktop.locator('.usage-summary strong').filter({hasText:'3.0 KiB'}).waitFor();
+  await desktop.locator('#usage-category').selectOption('images');
+  await desktop.locator('.usage-summary strong').filter({hasText:'2.0 KiB'}).waitFor();
   await desktop.locator('#browser-connection').waitFor({state:'hidden'});
   await desktop.evaluate(()=>{window.ndmTestConnection={seen:true,connected:false};});
   await desktop.locator('#browser-connection').waitFor({state:'visible'});

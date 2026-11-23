@@ -710,14 +710,28 @@ async fn write_chunk(
     file.sync_data().await.map_err(io_error)?;
     drop(file);
     t.sample(offset + body.len() as u64);
+    let mut published = None;
     if t.bytes == t.total {
         // Link first: a pre-existing file is never overwritten.
-        fs::hard_link(&partial, &t.path).await.map_err(io_error)?;
-        let _ = fs::remove_file(partial).await;
+        if let Err(error) = fs::hard_link(&partial, &t.path).await {
+            if error.kind() != std::io::ErrorKind::AlreadyExists
+                || !same_file::is_same_file(&partial, &t.path).unwrap_or(false)
+            {
+                t.phase = Phase::Failed;
+                t.error = Some(format!("Could not publish the received file: {error}"));
+                let response = t.public();
+                app.save(&state.saved).await.map_err(io_error)?;
+                return Ok(Json(response));
+            }
+        }
         t.phase = Phase::Complete;
+        published = Some(partial);
     }
     let view = t.public();
     app.save(&state.saved).await.map_err(io_error)?;
+    if let Some(partial) = published {
+        let _ = fs::remove_file(partial).await;
+    }
     Ok(Json(view))
 }
 
@@ -950,5 +964,78 @@ pub async fn companion_transfer(
             Ok(())
         }
         _ => Err("This action is not available.".into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::{json, Value};
+
+    #[tokio::test]
+    async fn pinned_pairing_transfer_resume_stats_and_revocation() {
+        let root = tempfile::tempdir().unwrap();
+        let download_root = root.path().join("downloads");
+        let manager = Manager::open(root.path().join("queue"), ndm_core::Settings::new(download_root.clone())).await.unwrap();
+        let state = Companion { inner: Arc::new(Mutex::new(Runtime::default())), dir: root.path().join("companion"), manager, bind_port: 0 };
+        state.enable(true).await.unwrap();
+        let code = secret();
+        let port = {
+            let mut current = state.inner.lock().await;
+            current.pair = Some((sha(&code), now()+120));
+            current.port
+        };
+        let address = SocketAddr::from(([127,0,0,1],port));
+        let (cert, _) = state.identity().await.unwrap();
+        let client = reqwest::Client::builder().no_proxy().resolve("ndm.local", address)
+            .add_root_certificate(reqwest::Certificate::from_der(&cert).unwrap())
+            .timeout(std::time::Duration::from_secs(10)).build().unwrap();
+        let url = format!("https://ndm.local:{port}");
+        let device=Uuid::new_v4();
+        let pairing = json!({"code":code,"name":"Test device","id":device,"remember":true});
+        assert_eq!(client.get(format!("{url}/status")).send().await.unwrap().status(),401);
+        let reply:Value=client.post(format!("{url}/pair")).json(&pairing).send().await.unwrap().error_for_status().unwrap().json().await.unwrap();
+        let token=reply["token"].as_str().unwrap();
+        assert_eq!(client.post(format!("{url}/pair")).json(&pairing).send().await.unwrap().status(),401);
+        let id=Uuid::new_v4();
+        let upload=json!({"id":id,"name":"../../clip.txt","total":6});
+        client.post(format!("{url}/transfer")).bearer_auth(token).json(&upload).send().await.unwrap().error_for_status().unwrap();
+        let send = |offset:usize, bytes:&'static str| client.post(format!("{url}/transfer/{id}/chunk?offset={offset}"))
+            .bearer_auth(token).body(bytes);
+        let first:Value=send(0,"abc").send().await.unwrap().json().await.unwrap();
+        assert_eq!(first["bytes"],3);
+        let duplicate:Value=send(0,"abc").send().await.unwrap().json().await.unwrap();
+        assert_eq!(duplicate["bytes"],3);
+        let finished:Value=send(3,"def").send().await.unwrap().json().await.unwrap();
+        assert_eq!(finished["phase"],"complete");
+        let target=download_root.join("NDM Shared").join(id.to_string()).join(sanitize_filename("../../clip.txt"));
+        assert_eq!(fs::read(&target).await.unwrap(),b"abcdef");
+
+        let outbound=Uuid::new_v4();
+        let source=root.path().join("image.png");
+        fs::write(&source, vec![42; CHUNK+99]).await.unwrap();
+        let modified=fs::metadata(&source).await.unwrap().modified().ok();
+        state.inner.lock().await.saved.transfers.push(Transfer{
+            id:outbound,device,to_pc:false,name:"image.png".into(),total:(CHUNK+99) as u64,bytes:0,phase:Phase::Ready,
+            path:source,modified,error:None,speed:0.0,sampled:None,
+        });
+        let chunk=|offset:usize| client.get(format!("{url}/transfer/{outbound}/chunk?offset={offset}")).bearer_auth(token);
+        let initial = chunk(0).send().await.unwrap().error_for_status().unwrap().bytes().await.unwrap();
+        assert_eq!(initial.len(),CHUNK);
+        let ack=|offset:usize| client.post(format!("{url}/transfer/{outbound}/ack")).bearer_auth(token).json(&json!({"offset":offset}));
+        ack(CHUNK).send().await.unwrap().error_for_status().unwrap();
+        let tail=chunk(CHUNK).send().await.unwrap().error_for_status().unwrap().bytes().await.unwrap();
+        assert_eq!(tail.as_ref(), &[42;99]);
+        ack(CHUNK+99).send().await.unwrap().error_for_status().unwrap();
+        let report=json!([{"hour":now()/3600,"bytes":57,"category":"images","device":"mobile"}]);
+        for _ in 0..2 {
+            let reply:Vec<Usage>=client.post(format!("{url}/usage")).bearer_auth(token).json(&report)
+                .send().await.unwrap().error_for_status().unwrap().json().await.unwrap();
+            assert_eq!(reply.iter().find(|x| x.device=="mobile").unwrap().bytes,57);
+        }
+        state.revoke(device).await.unwrap();
+        assert_eq!(client.get(format!("{url}/status")).bearer_auth(token).send().await.unwrap().status(),401);
+        assert_eq!(client.get(format!("{url}/transfer/{id}")).bearer_auth(token).send().await.unwrap().status(),401);
+        state.enable(false).await.unwrap();
     }
 }

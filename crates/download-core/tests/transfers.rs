@@ -28,6 +28,17 @@ fn job(url: String, destination: &Path) -> Download {
 fn engine(root: &Path) -> Engine {
     Engine::new(root.join("parts"), NetworkLimits::new(4, 4, 0)).expect("engine")
 }
+#[tokio::test]
+async fn preview_reads_head_metadata_without_starting_a_job() {
+    let server = support::Server::start().await;
+    let dir = tempfile::tempdir().unwrap();
+    let preview = engine(dir.path()).preview(&server.url("range"), dir.path()).await.unwrap();
+    assert_eq!(preview.name, "fixture.bin");
+    assert_eq!(preview.total, Some(server.data.len() as u64));
+    assert_eq!(preview.resumable, Some(true));
+    assert_eq!(server.requests.lock().unwrap().len(), 1);
+    assert!(!dir.path().join("parts").exists());
+}
 async fn run(engine: &Engine, job: &Download) -> ndm_core::Result<(std::path::PathBuf, String)> {
     let (tx, mut rx) = mpsc::channel(128);
     let drain = tokio::spawn(async move { while rx.recv().await.is_some() {} });

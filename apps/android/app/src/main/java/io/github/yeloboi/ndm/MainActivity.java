@@ -103,6 +103,11 @@ public final class MainActivity extends Activity {
     }
     private void build(){
         LinearLayout root=column();root.setBackgroundColor(bg);
+        if(Build.VERSION.SDK_INT>=35)root.setOnApplyWindowInsetsListener((view,insets)->{
+            android.graphics.Insets safe=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());
+            view.setPadding(safe.left,safe.top,safe.right,safe.bottom);
+            return insets;
+        });
         LinearLayout head=new LinearLayout(this);head.setPadding(dp(19),dp(12),dp(19),dp(10));head.setGravity(Gravity.CENTER_VERTICAL);
         ImageView icon=new ImageView(this);icon.setImageResource(R.drawable.ndm_mark);head.addView(icon,new LinearLayout.LayoutParams(dp(44),dp(44)));
         LinearLayout title=column();title.setPadding(dp(10),0,0,0);title.addView(strong("NDM",23));
@@ -111,7 +116,7 @@ public final class MainActivity extends Activity {
         tabs=new LinearLayout(this);tabs.setPadding(dp(13),0,dp(13),dp(6));root.addView(tabs);
         scroll=new ScrollView(this);scroll.setClipToPadding(false);scroll.setFillViewport(false);
         board=column();board.setPadding(dp(16),dp(7),dp(16),dp(22));scroll.addView(board);
-        root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);select(0);
+        root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);root.requestApplyInsets();select(0);
     }
     private void select(int tab){
         active=tab;tabs.removeAllViews();String[] labels={"Phone","PC","Files","Usage"};

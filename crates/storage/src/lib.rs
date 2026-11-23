@@ -73,8 +73,8 @@ impl Store {
             let transaction = connection.transaction()?;
             transaction.execute("INSERT INTO state (id,version,snapshot) VALUES(1,1,?1) ON CONFLICT(id) DO UPDATE SET version=1,snapshot=excluded.snapshot", params![json])?;
             if let Some(entry) = entry {
-                transaction.execute("INSERT INTO usage VALUES('pc',?1,?2,?3) ON CONFLICT(device,hour,category) DO UPDATE SET bytes = usage.bytes + excluded.bytes",
-                    params![entry.hour, entry.category, entry.bytes])?;
+                transaction.execute("INSERT INTO usage VALUES('pc',?1,?2,?3) ON CONFLICT(device,hour,category) DO UPDATE SET bytes = min(9223372036854775807, usage.bytes + excluded.bytes)",
+                    params![entry.hour, entry.category, i64::try_from(entry.bytes).unwrap_or(i64::MAX)])?;
             }
             transaction.commit()
         }).await
@@ -85,7 +85,7 @@ impl Store {
             let transaction = connection.transaction()?;
             for entry in entries {
                 transaction.execute("INSERT INTO usage VALUES(?1,?2,?3,?4) ON CONFLICT(device,hour,category) DO UPDATE SET bytes = max(usage.bytes, excluded.bytes)",
-                    params![device, entry.hour, entry.category, entry.bytes])?;
+                    params![device, entry.hour, entry.category, i64::try_from(entry.bytes).unwrap_or(i64::MAX)])?;
             }
             transaction.commit()
         }).await
@@ -94,7 +94,7 @@ impl Store {
     pub async fn usage_since(&self, hour: i64) -> Result<Vec<Usage>> {
         self.run(move |connection| {
             let mut query = connection.prepare("SELECT hour, category, CAST(total(bytes) AS INTEGER), CASE WHEN device='pc' THEN 'pc' ELSE 'mobile' END AS source FROM usage WHERE hour>=?1 GROUP BY hour,category,source ORDER BY hour")?;
-            let rows = query.query_map([hour], |row| Ok(Usage { hour: row.get(0)?, category: row.get(1)?, bytes: row.get(2)?, device: row.get(3)? }))?;
+            let rows = query.query_map([hour], |row| Ok(Usage { hour: row.get(0)?, category: row.get(1)?, bytes: row.get::<_,i64>(2)?.max(0) as u64, device: row.get(3)? }))?;
             rows.collect()
         }).await
     }

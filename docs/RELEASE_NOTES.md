@@ -1,4 +1,13 @@
-# NDM 0.1.0-alpha.7 — Automatic connection for Chrome, Edge, and Firefox
+# NDM 0.1.0-alpha.8 — Android companion and file sharing
+
+- Review Add links before starting. NDM checks the name, exact size, extension and safe resume via HEAD when the server provides them, and suggests a folder by file type. Start prioritizes the download for the next free slot.
+- The installed Windows app checks GitHub Releases for newer versions, shows release notes and download progress, and verifies the installer against GitHub’s asset SHA-256 before opening Windows Setup. Later snoozes that version for 24 hours. Portable users update by replacing their archive.
+- The signed Android app downloads files locally and shows APK app icon, name, package, version and size ahead of Android’s own installation confirmation.
+- Pair Android and Windows on the same Wi-Fi. In Windows Settings, enable **Your phone** and show its one-use QR code. Android can watch PC downloads, add links, pause, resume, stop, and remove queue entries. Remembered phones rejoin using their saved credential, and access can be revoked on the PC.
+- Local file sharing works in both directions, supports multiple files and resumes from its last saved offset. iOS and cloud relay are outside this release. PC and Android usage charts report completed internet downloads separately from local shares.
+- The built-in updater first ships here: install this version from Releases if you are upgrading from alpha.7.
+
+## NDM 0.1.0-alpha.7 — Automatic connection for Chrome, Edge, and Firefox
 
 - The Windows installer and NDM startup register native messaging for all three browsers. The release Chrome/Edge extension keeps one ID regardless of its unpacked folder; no manual PowerShell command is needed.
 - Use the new extension and app together. Replace the old unpacked Chrome/Edge extension to avoid two NDM toolbar icons. Firefox still requires Load Temporary Add-on after a browser restart.

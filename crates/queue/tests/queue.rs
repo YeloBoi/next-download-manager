@@ -29,6 +29,26 @@ fn add(urls: Vec<String>, start: bool) -> Action {
 }
 
 #[tokio::test]
+async fn manual_start_precedes_the_waiting_queue_and_persists_usage() {
+    let server = support::Server::start().await;
+    let dir = tempfile::tempdir().expect("dir");
+    let settings = Settings::new(dir.path().join("downloads"));
+    let data = dir.path().join("state");
+    let manager = Manager::open(data.clone(), settings.clone()).await.unwrap();
+    manager.execute(add(vec![server.url("plain")], false)).await.unwrap();
+    let start = server.url("range");
+    let response = manager.execute(add(vec![start.clone()], true)).await.unwrap();
+    assert_eq!(response.downloads[0].url, start);
+    let completed = wait(&manager, |s| s.downloads[0].status == Status::Completed).await;
+    manager.execute(Action::Remove {id:completed.downloads[0].id.clone(),delete_files:false}).await.unwrap();
+    manager.execute(Action::Shutdown).await.unwrap();
+    let reopened = Manager::open(data, settings).await.unwrap();
+    let usage = reopened.usage().await.unwrap();
+    assert!(usage.iter().any(|row| row.device == "pc" && row.bytes >= server.data.len() as u64));
+    reopened.execute(Action::Shutdown).await.unwrap();
+}
+
+#[tokio::test]
 async fn browser_batches_deduplicate_preserve_order_and_respect_durable_user_stop() {
     let server = support::Server::start().await;
     let dir = tempfile::tempdir().expect("dir");

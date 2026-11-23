@@ -44,6 +44,11 @@ public final class MainActivity extends Activity {
     private final Set<Long> seenLocal=new HashSet<>();
     private final Map<Long,long[]> localRates=new HashMap<>();
     private Intent pendingShare;
+    private LinearLayout updateBanner;
+    private ProgressBar updateBar;
+    private AppUpdates.Update available;
+    private long nextUpdateCheck;
+    private boolean checkingUpdate,downloadingUpdate;
 
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
@@ -57,14 +62,14 @@ public final class MainActivity extends Activity {
         build();
         handleIntent(getIntent());
     }
-    @Override protected void onResume(){super.onResume();client.foreground=true;main.removeCallbacks(tick);main.post(tick);}
+    @Override protected void onResume(){super.onResume();client.foreground=true;main.removeCallbacks(tick);main.post(tick);checkUpdate(false);}
     @Override protected void onPause(){client.foreground=false;main.removeCallbacks(tick);super.onPause();}
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);handleIntent(intent);}
 
     private final Runnable tick=new Runnable(){
         @Override public void run(){
             installFeedback();
-            if(!inspectBusy&&!installing&&apkDialog==null){
+            if(!inspectBusy&&!installing&&!downloadingUpdate&&apkDialog==null){
                 for(PhoneDownloads.Local job:client.phoneJobs)
                     if(job.justCompleted()&&job.apk()&&job.uri()!=null&&seenLocal.add(job.id())){inspectApk(job.uri());break;}
             }
@@ -116,7 +121,10 @@ public final class MainActivity extends Activity {
         tabs=new LinearLayout(this);tabs.setPadding(dp(13),0,dp(13),dp(6));root.addView(tabs);
         scroll=new ScrollView(this);scroll.setClipToPadding(false);scroll.setFillViewport(false);
         board=column();board.setPadding(dp(16),dp(7),dp(16),dp(22));scroll.addView(board);
-        root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);root.requestApplyInsets();select(0);
+        root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+        updateBanner=column();updateBanner.setPadding(dp(16),dp(9),dp(16),dp(10));updateBanner.setBackgroundColor(surface);
+        root.addView(updateBanner,new LinearLayout.LayoutParams(-1,-2));paintUpdate();
+        setContentView(root);root.requestApplyInsets();select(0);
     }
     private void select(int tab){
         active=tab;tabs.removeAllViews();String[] labels={"Phone","PC","Files","Usage"};
@@ -151,7 +159,9 @@ public final class MainActivity extends Activity {
     private void phone(){
         header("Downloads","Save links to this phone and preview APK details before installing.");
         LinearLayout tools=panel();tools.addView(strong("On this device",16));
-        actions(tools,button("Add link",true,()->addLink(false)),button("Choose APK",false,()->pick(PICK_APK)));item(board,tools);
+        actions(tools,button("Add link",true,()->addLink(false)),button("Choose APK",false,()->pick(PICK_APK)));
+        actions(tools,button("Check for NDM updates",false,()->checkUpdate(true)));
+        item(board,tools);
         if(client.phoneJobs.isEmpty())empty("Nothing downloading yet","Add a direct link. Files are saved in Downloads → NDM.");
         long now=SystemClock.elapsedRealtime();
         for(PhoneDownloads.Local j:client.phoneJobs){
@@ -173,7 +183,7 @@ public final class MainActivity extends Activity {
     }
 
     private void pc(){
-        header("Your PC","Control downloads over your local network.");
+        header("Your PC","Control downloads over local Wi-Fi or the same Tailscale network.");
         LinearLayout p=panel();p.addView(strong(client.online?"Connected":client.pc!=null?"Reconnecting":"Pair a PC",16));gap(p,5);
         p.addView(text(client.pc!=null?(client.online?client.pc.host:client.issue.isEmpty()?"Connecting to "+client.pc.host:client.issue):
             client.issue.isEmpty()?"In NDM for Windows, open Settings → Your phone, then show the QR code.":client.issue,13,sub));
@@ -414,11 +424,81 @@ public final class MainActivity extends Activity {
     }
 
     private void inspectApk(Uri uri){
-        if(inspectBusy||installing)return;
+        if(inspectBusy||installing||downloadingUpdate)return;
         inspectBusy=true;message("Reading APK details…");
         client.commands.execute(()->{
             try{ApkInstall.Details result=ApkInstall.inspect(this,uri);main.post(()->{inspectBusy=false;if(isFinishing())result.file().delete();else showApk(result);});}
             catch(Exception error){main.post(()->{inspectBusy=false;message(error.getMessage());});}
+        });
+    }
+    private void checkUpdate(boolean manual){
+        if(checkingUpdate||downloadingUpdate||(!manual&&SystemClock.elapsedRealtime()<nextUpdateCheck))return;
+        checkingUpdate=true;
+        client.commands.execute(()->{
+            try{
+                AppUpdates.Update found=AppUpdates.check(this);
+                main.post(()->{
+                    checkingUpdate=false;nextUpdateCheck=SystemClock.elapsedRealtime()+21600000;
+                    if(isDestroyed())return;
+                    available=found;
+                    if(manual){
+                        client.prefs.edit().remove("updateUntil").apply();
+                        if(found==null)message("NDM is up to date.");
+                    }
+                    paintUpdate();
+                });
+            }catch(Exception ignored){
+                main.post(()->{
+                    checkingUpdate=false;nextUpdateCheck=SystemClock.elapsedRealtime()+900000;
+                    if(manual&&!isDestroyed())message("Could not check for updates. Try again later.");
+                });
+            }
+        });
+    }
+
+    private void paintUpdate(){
+        updateBanner.removeAllViews();
+        boolean snoozed=available!=null&&available.tag().equals(client.prefs.getString("updateTag",""))
+            &&System.currentTimeMillis()<client.prefs.getLong("updateUntil",0);
+        updateBanner.setVisibility(available==null||snoozed?View.GONE:View.VISIBLE);
+        if(updateBanner.getVisibility()!=View.VISIBLE)return;
+        updateBanner.addView(strong((downloadingUpdate?"Downloading NDM ":"NDM update available: ")+available.tag(),14));
+        if(downloadingUpdate){
+            updateBar=progress(0,100);
+            updateBanner.addView(updateBar,new LinearLayout.LayoutParams(-1,dp(14)));
+        }else{
+            AppUpdates.Update seen=available;
+            actions(updateBanner,button("What's new",false,()->{
+                try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(seen.notes())));}
+                catch(ActivityNotFoundException error){message("No browser is available to show the release notes.");}
+            }),button("Later",false,()->{
+                client.prefs.edit().putString("updateTag",seen.tag()).putLong("updateUntil",System.currentTimeMillis()+86400000).apply();
+                paintUpdate();
+            }),button("Update",true,()->downloadUpdate(seen)));
+        }
+    }
+
+    private void downloadUpdate(AppUpdates.Update update){
+        if(downloadingUpdate||isDestroyed())return;
+        if(inspectBusy||apkDialog!=null||installing){message("Close the APK installer before updating NDM.");return;}
+        downloadingUpdate=true;
+        paintUpdate();
+        client.commands.execute(()->{
+            try{
+                var details=AppUpdates.download(this,update,percent->main.post(()->{
+                    if(downloadingUpdate&&updateBar!=null)updateBar.setProgress(percent*10,true);
+                }));
+                main.post(()->{
+                    downloadingUpdate=false;
+                    if(isFinishing()||isDestroyed()){details.file().delete();return;}
+                    paintUpdate();showApk(details);
+                });
+            }catch(Exception error){
+                main.post(()->{
+                    downloadingUpdate=false;
+                    if(!isDestroyed()){paintUpdate();message(error.getMessage());}
+                });
+            }
         });
     }
     private void showApk(ApkInstall.Details details){

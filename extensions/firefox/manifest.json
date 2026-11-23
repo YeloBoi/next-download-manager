@@ -2,8 +2,9 @@
   "manifest_version": 3,
   "name": "NDM — Next Download Manager",
   "description": "Send direct file links to your local NDM desktop app, only when you choose.",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "default_locale": "en",
+  "host_permissions": ["https://github.com/*", "https://release-assets.githubusercontent.com/*"],
   "permissions": [
     "contextMenus",
     "nativeMessaging",
@@ -39,6 +40,7 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "ndm@yeloboi.github.io",
+      "update_url": "https://github.com/YeloBoi/next-download-manager/releases/latest/download/firefox-updates.json",
       "strict_min_version": "140.0",
       "data_collection_permissions": {
         "required": [

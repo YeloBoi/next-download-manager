@@ -5,14 +5,20 @@ import android.content.SharedPreferences;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.util.Base64;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.*;
 import java.net.URL;
+import java.net.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.security.MessageDigest;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
@@ -26,12 +32,29 @@ final class PcLink {
     final String pin;
     final String token;
     final SSLSocketFactory factory;
+    final List<String> hosts;
 
-    private PcLink(String host, String pin, String token) throws Exception {
-        if (!host.matches("(?:[0-9]{1,3}\\.){3}[0-9]{1,3}:42672") || !pin.matches("[a-f0-9]{64}"))
+    private static boolean validHost(String host) {
+        if (!host.matches("(?:[0-9]{1,3}\\.){3}[0-9]{1,3}:42672")) return false;
+        for (String part : host.split(":")[0].split("\\.")) if (Integer.parseInt(part) > 255) return false;
+        return true;
+    }
+
+    private static List<String> addresses(String host, JSONArray alternatives) throws IOException {
+        if (!validHost(host)) throw new IOException("Invalid NDM pairing address.");
+        LinkedHashSet<String> hosts = new LinkedHashSet<>();
+        hosts.add(host);
+        for (int i=0; alternatives!=null && i<alternatives.length() && hosts.size()<4; i++) {
+            String candidate=alternatives.optString(i);
+            if (validHost(candidate)) hosts.add(candidate);
+        }
+        return Collections.unmodifiableList(new ArrayList<>(hosts));
+    }
+
+    private PcLink(String host, List<String> hosts, String pin, String token) throws Exception {
+        if (!validHost(host) || !pin.matches("[a-f0-9]{64}"))
             throw new IOException("Invalid NDM pairing address.");
-        for (String part : host.split(":")[0].split("\\.")) if (Integer.parseInt(part) > 255) throw new IOException("Invalid PC address.");
-        this.host = host; this.pin = pin; this.token = token;
+        this.host = host; this.hosts = hosts; this.pin = pin; this.token = token;
         byte[] expected = new byte[32];
         for (int i = 0; i < expected.length; i++) expected[i] = (byte) Integer.parseInt(pin.substring(i * 2, i * 2 + 2), 16);
         SSLContext ssl = SSLContext.getInstance("TLS");
@@ -54,14 +77,54 @@ final class PcLink {
         if (qr == null || !qr.startsWith("NDM1:") || qr.length() > 1024) throw new IOException("Scan the QR code from NDM Settings on the PC.");
         JSONObject data = new JSONObject(qr.substring(5));
         if (data.getLong("expires") + 15 < System.currentTimeMillis() / 1000) throw new IOException("This code expired. Generate a fresh code on the PC.");
-        PcLink handshake = new PcLink(data.getString("host"), data.getString("pin"), "");
+        String host=data.getString("host");
+        PcLink handshake = new PcLink(host,addresses(host,data.optJSONArray("hosts")),data.getString("pin"),"").findRoute();
         JSONObject payload = new JSONObject().put("code",data.getString("code")).put("name",name).put("id",id).put("remember",remember);
         String token = handshake.object("POST","/pair",payload).getString("token");
         if (!token.matches("[a-f0-9]{64}")) throw new IOException("Invalid pairing response.");
-        return new PcLink(handshake.host,handshake.pin,token);
+        return new PcLink(handshake.host,handshake.hosts,handshake.pin,token);
     }
 
-    PcLink at(String address) throws Exception { return new PcLink(address,pin,token); }
+    PcLink at(String address) throws Exception {
+        List<String> alternatives=new ArrayList<>(hosts);
+        if(!alternatives.contains(address)){
+            if(alternatives.size()==4)alternatives.remove(alternatives.size()-1);
+            alternatives.add(0,address);
+        }
+        return new PcLink(address,Collections.unmodifiableList(alternatives),pin,token);
+    }
+
+    private PcLink findRoute() throws Exception {
+        SSLException tls=null;
+        for(String address:hosts){
+            PcLink link=at(address);
+            try{
+                link.object("GET","/status",null);
+            } catch(HttpFailure response) {
+                if(response.code==401)return link;
+            } catch(SSLException error){tls=error;}
+              catch(IOException ignored){}
+        }
+        if(tls!=null)throw tls;
+        throw new IOException("PC not reachable. Keep NDM open, allow it through Windows Firewall, and check Wi-Fi or Tailscale on both devices.");
+    }
+
+    record Status(PcLink route,JSONObject data){}
+
+    Status status() throws Exception {
+        try {return new Status(this,object("GET","/status",null));}
+        catch(HttpFailure error){throw error;}
+        catch(IOException first){
+            for(String address:hosts){
+                if(address.equals(host))continue;
+                PcLink link=at(address);
+                try{return new Status(link,link.object("GET","/status",null));}
+                catch(HttpFailure error){throw error;}
+                catch(IOException ignored){}
+            }
+            throw first;
+        }
+    }
 
     JSONObject object(String method, String path, JSONObject data) throws Exception {
         byte[] result = request(method,path,data==null?null:data.toString().getBytes(StandardCharsets.UTF_8),"application/json",8*1024*1024);
@@ -69,7 +132,7 @@ final class PcLink {
     }
 
     byte[] request(String method, String path, byte[] data, String type, int limit) throws Exception {
-        HttpsURLConnection connection=(HttpsURLConnection)new URL("https://"+host+path).openConnection();
+        HttpsURLConnection connection=(HttpsURLConnection)new URL("https://"+host+path).openConnection(Proxy.NO_PROXY);
         connection.setSSLSocketFactory(factory);
         // The peer's exact QR fingerprint, rather than a DNS hostname, is checked by the trust manager.
         connection.setHostnameVerifier((hostname, session)->hostname.equals(host.split(":")[0]));
@@ -112,7 +175,7 @@ final class PcLink {
 
     void save(Context context) throws Exception {
         Cipher cipher=Cipher.getInstance("AES/GCM/NoPadding");cipher.init(Cipher.ENCRYPT_MODE,localKey());
-        byte[] encrypted=cipher.doFinal(new JSONObject().put("host",host).put("pin",pin).put("token",token).toString().getBytes(StandardCharsets.UTF_8));
+        byte[] encrypted=cipher.doFinal(new JSONObject().put("host",host).put("hosts",new JSONArray(hosts)).put("pin",pin).put("token",token).toString().getBytes(StandardCharsets.UTF_8));
         if(!prefs(context).edit().putString("record",Base64.encodeToString(cipher.getIV(),Base64.NO_WRAP)+":"+Base64.encodeToString(encrypted,Base64.NO_WRAP)).commit())
             throw new IOException("Could not remember the paired PC.");
     }
@@ -125,7 +188,8 @@ final class PcLink {
             Cipher cipher=Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.DECRYPT_MODE,localKey(),new GCMParameterSpec(128,Base64.decode(fields[0],Base64.NO_WRAP)));
             JSONObject value=new JSONObject(new String(cipher.doFinal(Base64.decode(fields[1],Base64.NO_WRAP)),StandardCharsets.UTF_8));
-            return new PcLink(value.getString("host"),value.getString("pin"),value.getString("token"));
+            String host=value.getString("host");
+            return new PcLink(host,addresses(host,value.optJSONArray("hosts")),value.getString("pin"),value.getString("token"));
         } catch(Exception error) { forget(context);return null; }
     }
 

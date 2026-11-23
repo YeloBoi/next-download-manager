@@ -1,12 +1,26 @@
 name: Firefox extension checks
 on:
   workflow_call:
+    inputs:
+      release:
+        type: boolean
+        default: false
+    secrets:
+      AMO_JWT_ISSUER:
+        required: false
+      AMO_JWT_SECRET:
+        required: false
+    outputs:
+      signed:
+        value: ${{ jobs.firefox.outputs.signed }}
 permissions:
   contents: read
 jobs:
   firefox:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      signed: ${{ steps.sign.outputs.signed }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -21,3 +35,28 @@ jobs:
         env:
           MOZ_REMOTE_ALLOW_SYSTEM_ACCESS: '1'
         run: python scripts/Check-Firefox.py
+      - name: Sign Firefox for direct installation and automatic updates
+        id: sign
+        if: inputs.release
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$WEB_EXT_API_KEY" && -z "$WEB_EXT_API_SECRET" ]]; then
+            echo '::notice::No AMO credentials; publishing the Firefox developer ZIP only.'
+            exit 0
+          fi
+          test -n "$WEB_EXT_API_KEY" && test -n "$WEB_EXT_API_SECRET"
+          mkdir -p "$RUNNER_TEMP/ndm-firefox" signed-firefox
+          cp -R extensions/chromium/. "$RUNNER_TEMP/ndm-firefox/"
+          cp extensions/firefox/manifest.json "$RUNNER_TEMP/ndm-firefox/manifest.json"
+          npx --yes web-ext@8.10.0 sign --channel unlisted --source-dir "$RUNNER_TEMP/ndm-firefox" --artifacts-dir signed-firefox
+          mv signed-firefox/*.xpi "signed-firefox/NDM-${GITHUB_REF_NAME#v}-firefox.xpi"
+          echo 'signed=true' >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: steps.sign.outputs.signed == 'true'
+        with:
+          name: ndm-firefox-signed
+          path: signed-firefox/*.xpi
+          if-no-files-found: error

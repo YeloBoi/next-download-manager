@@ -17,13 +17,16 @@ final class ApkInstall {
         File path=new File(context.getCacheDir(),"install-"+UUID.randomUUID()+".apk");
         try{
             PhoneDownloads.copyUri(context.getContentResolver(),uri,path,4L*1024*1024*1024);
-            PackageManager pm=context.getPackageManager();
-            PackageInfo pkg=pm.getPackageArchiveInfo(path.getAbsolutePath(),0);
-            if(pkg==null||pkg.applicationInfo==null)throw new IOException("This is not a valid standalone APK.");
-            ApplicationInfo info=pkg.applicationInfo;
-            info.sourceDir=path.getAbsolutePath();info.publicSourceDir=path.getAbsolutePath();
-            return new Details(path,String.valueOf(info.loadLabel(pm)),pkg.packageName,pkg.versionName!=null?pkg.versionName:"Unknown",path.length(),info.loadIcon(pm));
+            return details(context,path);
         }catch(Exception error){path.delete();throw error;}
+    }
+    static Details details(Context context,File path)throws IOException{
+        PackageManager pm=context.getPackageManager();
+        PackageInfo pkg=pm.getPackageArchiveInfo(path.getAbsolutePath(),0);
+        if(pkg==null||pkg.applicationInfo==null)throw new IOException("This is not a valid standalone APK.");
+        ApplicationInfo info=pkg.applicationInfo;
+        info.sourceDir=path.getAbsolutePath();info.publicSourceDir=path.getAbsolutePath();
+        return new Details(path,String.valueOf(info.loadLabel(pm)),pkg.packageName,pkg.versionName!=null?pkg.versionName:"Unknown",path.length(),info.loadIcon(pm));
     }
     static int stage(Context context,Details details,IntConsumer progress)throws Exception{
         PackageInstaller installer=context.getPackageManager().getPackageInstaller();

@@ -33,6 +33,7 @@ rcgen = "0.14"
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 qrcode = { version = "0.14", default-features = false }
 mdns-sd = "0.22"
+if-addrs = "0.15"
 same-file = "1"
 
 [dev-dependencies]

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-alpha.9
+
+- Pair through Tailscale across Wi-Fi and mobile data. Local pairing and remembered sessions can try more than one address.
+- Check, download and verify Android updates from the latest GitHub Release before opening Android’s installer.
+- Show browser extension updates in the popup; support Firefox’s native update feed for Mozilla-signed builds.
+
 ## 0.1.0-alpha.8
 
 - Preview direct links with HEAD; suggest a destination and give confirmed downloads priority over the regular queue.

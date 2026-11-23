@@ -40,7 +40,8 @@ server = http.server.ThreadingHTTPServer(("127.0.0.1", 42672), Fixture)
 tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 tls.load_cert_chain(str(cert), str(root / "key.pem"))
 server.socket = tls.wrap_socket(server.socket, server_side=True)
-payload = {"host": "127.0.0.1:42672", "pin": hashlib.sha256(ssl.PEM_cert_to_DER_cert(cert.read_text())).hexdigest(),
+payload = {"host": "127.0.0.2:42672", "hosts": ["127.0.0.1:42672"],
+           "pin": hashlib.sha256(ssl.PEM_cert_to_DER_cert(cert.read_text())).hexdigest(),
            "code": code, "expires": int(time.time()) + 600}
 (root / "qr").write_text(base64.b64encode(("NDM1:" + json.dumps(payload)).encode()).decode())
 server.serve_forever()

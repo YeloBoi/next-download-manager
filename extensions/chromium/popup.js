@@ -1,4 +1,5 @@
 import { extensionApi } from './api.js';
+import { extensionFeed, newerExtension } from './updates.js';
 const api = extensionApi();
 const translations = {
   en:{title:'Send to NDM',urls:'Direct URLs, one per line',extract:'Find links on this page',queue:'Add all to queue',now:'Download all',hint:'Only selected links are shared. NDM does not read your cookies or browsing history.',connected:'Desktop connected',offline:'Waiting for NDM. Open the updated desktop app; the extension reconnects automatically.',accepted:'Accepted by NDM. A paused queue stays paused; use Start queue in NDM.',none:'No HTTP(S) links found.',failed:'Links are saved. Check setup, then retry.',extractError:'This page does not allow link extraction.',collect:'Add to selection',selection:'Saved selection',clear:'Clear selection',remove:'Remove',up:'Move up',down:'Move down',empty:'No saved links. Collect links from any tab.',invalid:'Enter valid HTTP(S) links; keep the total at 100 or fewer.'},
@@ -13,6 +14,17 @@ let text=translations[language]||translations.en;
 let saved=[];
 let pending=false;
 let connection;
+let update;
+let dismissed={};
+const updateRow=document.querySelector('#extension-update');
+function renderUpdate() {
+  updateRow.hidden=!update || (dismissed.tag===update.tag && dismissed.until>Date.now());
+  if(updateRow.hidden)return;
+  const link=updateRow.querySelector('a');
+  link.href=update.url;
+  link.textContent=language==='fa'?`دریافت آپدیت ${update.tag}`:`Get update ${update.tag}`;
+  updateRow.querySelector('button').textContent=language==='fa'?'بعداً':'Later';
+}
 function translate(){
   text={...translations[language]||translations.en,...diagnostics[language]||diagnostics.en};
   document.documentElement.lang=language;document.documentElement.dir=language==='fa'?'rtl':'ltr';
@@ -20,8 +32,21 @@ function translate(){
   document.querySelector('#setup-guide').href=`https://github.com/YeloBoi/next-download-manager/blob/main/docs/EXTENSION${language==='fa'?'.fa':''}.md`;
   document.querySelectorAll('[data-i18n]').forEach(node=>node.textContent=text[node.dataset.i18n]);
   renderConnection(connection);
+  renderUpdate();
 }
 translate();
+updateRow.querySelector('button').addEventListener('click',()=>{
+  if(!update)return;
+  dismissed={tag:update.tag,until:Date.now()+86400000};
+  void api.storage.local.set({ndmUpdateLater:dismissed}).catch(()=>{});
+  renderUpdate();
+});
+void Promise.all([extensionFeed(api.storage.local),api.storage.local.get('ndmUpdateLater')]).then(([feed,store])=>{
+  const manifest=api.runtime.getManifest();
+  dismissed=store.ndmUpdateLater||{};
+  update=newerExtension(feed,manifest.version,manifest.browser_specific_settings?.gecko?'firefox':'chromium');
+  renderUpdate();
+}).catch(()=>{});
 async function operation(operation, values={}) {
   const result=await api.runtime.sendMessage({type:'selection',operation,...values});
   if(!result?.ok)throw new Error(result?.reason || 'delivery');

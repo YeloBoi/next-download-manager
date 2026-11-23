@@ -68,7 +68,12 @@ final class CompanionClient {
         prefs.edit().putStringSet("selected",new HashSet<>(selected)).putStringSet("canceled",new HashSet<>(canceled)).commit();
     }
     void pair(String qr,String label,boolean remember) throws Exception {
-        PcLink paired=PcLink.pair(qr,id,label.length()>64?label.substring(0,64):label,remember);
+        PcLink paired;
+        try{paired=PcLink.pair(qr,id,label.length()>64?label.substring(0,64):label,remember);}
+        catch(Exception error){
+            if(pc==null)issue=error instanceof javax.net.ssl.SSLException?"PC identity could not be verified. Scan a fresh QR code.":error.getMessage();
+            throw new IOException(pc==null?issue:error.getMessage(),error);
+        }
         if(remember)paired.save(context);else PcLink.forget(context);
         prefs.edit().putBoolean("remember",remember).apply();
         PcLink prior=pc;
@@ -94,8 +99,14 @@ final class CompanionClient {
         phoneJobs=local.inspect();
         PcLink link=pc;if(link==null)return;
         try{
-            JSONObject state=link.object("GET","/status",null);
+            PcLink.Status result=link.status();
             if(pc!=link)return;
+            if(result.route()!=link){
+                link=result.route();
+                pc=link;
+                if(prefs.getBoolean("remember",false))try{link.save(context);}catch(Exception ignored){}
+            }
+            JSONObject state=result.data();
             JSONArray jobs=state.getJSONArray("downloads");
             JSONArray shares=state.getJSONArray("transfers");
             Set<String> pending=new HashSet<>();
@@ -123,16 +134,18 @@ final class CompanionClient {
             downloads=jobs;transfers=shares;online=true;issue="";
             if(System.currentTimeMillis()>syncAt){
                 JSONArray tally=local.usage();
-                byte[] response=link.request("POST","/usage",tally.toString().getBytes(StandardCharsets.UTF_8),"application/json",3*1024*1024);
-                usage=new JSONArray(new String(response,StandardCharsets.UTF_8));
                 syncAt=System.currentTimeMillis()+15000;
+                try{
+                    byte[] response=link.request("POST","/usage",tally.toString().getBytes(StandardCharsets.UTF_8),"application/json",3*1024*1024);
+                    usage=new JSONArray(new String(response,StandardCharsets.UTF_8));
+                }catch(Exception ignored){}
             }
         }catch(Exception error){
             if(pc!=link)return;
             if(error instanceof PcLink.HttpFailure&&((PcLink.HttpFailure)error).code==401){
                 PcLink.forget(context);pc=null;downloads=new JSONArray();transfers=new JSONArray();usage=new JSONArray();issue="Access ended. Pair again on the PC.";
             } else {
-                issue="PC unavailable. Check that both devices are on the same network and NDM is open.";
+                issue="PC unavailable. Keep NDM open and check Windows Firewall, Wi-Fi or Tailscale.";
                 discover(link);
             }
             online=false;

@@ -10,7 +10,7 @@ type Transfer = { id: string; device: string; name: string; to_pc: boolean; byte
 type View = { enabled: boolean; pairing: boolean; devices: Device[]; transfers: Transfer[] };
 type Usage = { device: 'pc'|'mobile'; hour: number; bytes: number; category: string };
 type Update = { version: string; notes: string; installable: boolean; portable: boolean };
-type QR = { path: string; size: number; expires: number; host: string };
+type QR = { path: string; size: number; expires: number; host: string; remote?: boolean };
 
 const categories: Key[] = ['video','audio','images','apps','games','archives','documents','other'];
 const windows = [24,168,720];
@@ -83,8 +83,8 @@ export function companionUI(native: boolean, t: Translate, toast: (message: stri
     if (!phone) return;
     if (qr&&Date.now()>=qr.expires*1000) { qr=null; qrExpired=true; }
     const devices=view?.devices||[];
-    const markup=`<div class="feature-actions">${buttons(view?.enabled?'phoneDisable':'phoneEnable','feature-enable-phone',t,(!native||!view)?'disabled':'')}${view?.enabled?buttons('pairPhone','feature-pair-phone',t):''}</div>
-      ${qr?`<figure class="pair-qr"><svg viewBox="0 0 ${qr.size} ${qr.size}" aria-label="${e(t('pairPhone'))}" role="img"><path d="${e(qr.path)}"></path></svg><figcaption>${e(t('pairHelp'))}<br><span dir="ltr">${e(qr.host)}</span></figcaption></figure>`:qrExpired?`<p class="feature-muted">${e(t('pairExpired'))}</p>`:''}
+    const markup=`<div class="feature-actions">${buttons(view?.enabled?'phoneDisable':'phoneEnable','feature-enable-phone',t,(!native||!view)?'disabled':'')}${view?.enabled?buttons('pairPhone','feature-pair-phone',t)+buttons('pairRemote','feature-pair-remote',t):''}</div>
+      ${qr?`<figure class="pair-qr"><svg viewBox="0 0 ${qr.size} ${qr.size}" aria-label="${e(t(qr.remote?'pairRemote':'pairPhone'))}" role="img"><path d="${e(qr.path)}"></path></svg><figcaption>${e(t('pairHelp'))}<br><span dir="ltr">${e(qr.host)}</span></figcaption></figure>`:qrExpired?`<p class="feature-muted">${e(t('pairExpired'))}</p>`:''}
       ${devices.length?devices.map(d=>`<article class="feature-row"><div><strong>${e(d.name)}</strong><small class="${d.online?'feature-online':''}">${e(t(d.online?'online':'offline'))}</small></div><div class="feature-actions">${buttons('sendFiles','feature-send',t,`data-id="${e(d.id)}" ${view?.enabled?'':'disabled'}`)}${buttons('revoke','feature-revoke',t,`data-id="${e(d.id)}"`)}</div></article>`).join(''):`<p class="feature-muted">${e(t('noPaired'))}</p>`}`;
     if(markup!==phoneMarkup) {phoneMarkup=markup;phone.innerHTML=markup;}
     const panel=document.querySelector('#transfer-panel');
@@ -159,8 +159,8 @@ export function companionUI(native: boolean, t: Translate, toast: (message: stri
       await invoke('companion_enable',{enabled:!view?.enabled});
       qr=null;
       qrExpired=false;
-    } else if(action==='feature-pair-phone') {
-      qr=await invoke<QR>('companion_pair');
+    } else if(action==='feature-pair-phone'||action==='feature-pair-remote') {
+      qr=await invoke<QR>('companion_pair',{remote:action==='feature-pair-remote'});
       qrExpired=false;
     } else if(action==='feature-revoke') {
       await invoke('companion_revoke',{id});

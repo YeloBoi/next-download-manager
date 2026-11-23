@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { validateUrls, request, sendNative } from '../extensions/chromium/protocol.js';
 import { mergeSelection, changeSelection } from '../extensions/chromium/selection.js';
 import { extensionApi } from '../extensions/chromium/api.js';
+import { newerExtension } from '../extensions/chromium/updates.js';
 
 test('Firefox manifest uses module background scripts and a fixed native messaging ID',async()=>{
   const firefox=JSON.parse(await readFile(new URL('../extensions/firefox/manifest.json',import.meta.url)));
@@ -27,10 +28,10 @@ test('native protocol rejects credentials, unsupported schemes, duplicates and l
   assert.deepEqual(validateUrls(['https://a.test/file?token=abc']),['https://a.test/file?token=abc']);
   const value=request('add',['https://a.test/file'],false);assert.equal(value.version,1);assert.equal(value.start,false);assert.equal(value.kind,'add');
 });
-test('extension has no persistent site, cookies, history or download interception permission',async()=>{
+test('extension only has persistent host access for its release feed',async()=>{
   const manifest=JSON.parse(await readFile(new URL('../extensions/chromium/manifest.json',import.meta.url)));
   assert.equal(manifest.manifest_version,3);
-  assert.equal(manifest.host_permissions,undefined);
+  assert.deepEqual(manifest.host_permissions,['https://github.com/*','https://release-assets.githubusercontent.com/*']);
   for(const permission of ['cookies','history','downloads','webRequest'])assert.ok(!manifest.permissions.includes(permission));
 });
 
@@ -53,4 +54,13 @@ test('native protocol rejects oversized batches before contacting the host and m
   await assert.rejects(sendNative(request('ping')),/Invalid response/);
   assert.equal(calls,1);
   delete globalThis.chrome;
+});
+test('extension updates use numeric versions and the matching GitHub release asset',()=>{
+  const feed={tag:'v0.1.0-alpha.11',chromium:{version:'0.1.10',name:'NDM-0.1.0-alpha.11-chromium.zip'},
+    firefox:{version:'0.1.10',name:'NDM-0.1.0-alpha.11-firefox.xpi'}};
+  assert.match(newerExtension(feed,'0.1.9','chromium').url,/alpha\.11-chromium\.zip$/);
+  assert.match(newerExtension(feed,'0.1.9','firefox').url,/alpha\.11-firefox\.xpi$/);
+  assert.equal(newerExtension(feed,'0.1.10','firefox'),null);
+  assert.equal(newerExtension(feed,'0.2','chromium'),null);
+  assert.equal(newerExtension({...feed,chromium:{...feed.chromium,name:'https://example.com/foreign.zip'}},'0.1.9','chromium'),null);
 });

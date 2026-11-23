@@ -25,10 +25,18 @@ public final class AndroidSmoke extends Instrumentation {
             String qr=new String(Base64.decode(options.getString("ndm_qr"),Base64.DEFAULT), StandardCharsets.UTF_8);
             JSONObject value=new JSONObject(qr.substring(5));
             PcLink link=PcLink.pair(qr,"be1c1a37-a1bd-48bb-8c0a-9d474edcbe65","Emulator",true);
+            require(link.host.equals("127.0.0.1:42672"),"Pairing did not fall back to the reachable address");
             link.save(app);
             PcLink remembered=PcLink.load(app);
             require(remembered!=null&&remembered.token.equals(link.token),"Could not restore Android Keystore session");
+            require(remembered.at("127.0.0.2:42672").status().route().host.equals(link.host),"Reconnect did not fall back to the saved address");
             require(remembered.object("GET","/status",null).getJSONArray("downloads").length()==1,"Could not read remote downloads");
+            JSONObject manifest=new JSONObject().put("tag","v0.1.0-alpha.10").put("android",new JSONObject()
+                .put("code",10).put("name","NDM-0.1.0-alpha.10-android.apk").put("sha256","a".repeat(64)).put("size",40));
+            require(AppUpdates.candidate(manifest,9).code()==10 && AppUpdates.candidate(manifest,10)==null,"Update version comparison failed");
+            manifest.getJSONObject("android").put("name","https://example.com/unsafe.apk");
+            try{AppUpdates.candidate(manifest,9);throw new AssertionError("Foreign APK was accepted");}
+            catch(java.io.IOException expected){}
             try{
                 value.put("pin","0000000000000000000000000000000000000000000000000000000000000000");
                 PcLink.pair("NDM1:"+value,"be1c1a37-a1bd-48bb-8c0a-9d474edcbe65","Untrusted",true);

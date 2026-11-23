@@ -1,3 +1,10 @@
+# NDM 0.1.0-alpha.9 — Connect remotely and check for updates
+
+- Update both Windows and Android, connect both devices to the same Tailscale network, then use **Settings → Your phone → Remote QR (Tailscale)** on Windows and scan on Android. The PC can stay on Wi-Fi while the phone uses mobile data. Keep NDM open on Windows.
+- For local pairing, **Show pairing QR** can include multiple PC addresses. New remembered pairings try the other addresses if the current route becomes unavailable.
+- Android checks for updates, verifies the release checksum and the existing app’s signature, then shows a preview before you confirm installation. Install this first updater release from GitHub once if you are on alpha.8 or earlier.
+- The Chrome, Edge and Firefox popups can find newer matching add-on downloads. ZIP installs still require manual replacement. Native Firefox automatic updates require a Mozilla-signed XPI.
+
 # NDM 0.1.0-alpha.8 — Android companion and file sharing
 
 - Review Add links before starting. NDM checks the name, exact size, extension and safe resume via HEAD when the server provides them, and suggests a folder by file type. Start takes the next free slot even outside the automatic queue schedule.

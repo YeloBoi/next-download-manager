@@ -54,7 +54,8 @@ fn reply(response: &Response) -> Result<(), String> {
 
 async fn run(args: &[String]) -> Result<(), String> {
     let directory = bridge_directory()?;
-    let (filename, field, caller) = if firefox_caller(args, &directory) {
+    let firefox = firefox_caller(args, &directory);
+    let (filename, field, caller) = if firefox {
         (FIREFOX_MANIFEST, "allowed_extensions", FIREFOX_ID)
     } else {
         (
@@ -81,7 +82,7 @@ async fn run(args: &[String]) -> Result<(), String> {
     while let Ok(bytes) = read_frame(&mut std::io::stdin().lock()) {
         let request: Request = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
         let response = match request.validate() {
-            Ok(()) => forward(&directory, &request, &bytes).await,
+            Ok(()) => forward(&directory, &request, &bytes, firefox).await,
             Err(error) => Err(error),
         };
         let response = response.unwrap_or_else(|error| failure(request.request_id, error));
@@ -94,6 +95,7 @@ async fn forward(
     directory: &std::path::Path,
     request: &Request,
     bytes: &[u8],
+    _firefox: bool,
 ) -> Result<Response, String> {
     let id = uuid::Uuid::new_v4().to_string();
     let path = directory.join(&id);
@@ -106,7 +108,9 @@ async fn forward(
         let mut command = tokio::process::Command::new(desktop);
         // Firefox kills its native-host job after a one-shot reply; NDM must outlive it.
         #[cfg(windows)]
-        command.creation_flags(0x01000000); // CREATE_BREAKAWAY_FROM_JOB
+        if _firefox {
+            command.creation_flags(0x01000000); // CREATE_BREAKAWAY_FROM_JOB
+        }
         if let Err(error) = command
             .arg("--browser-request")
             .stdin(std::process::Stdio::null())

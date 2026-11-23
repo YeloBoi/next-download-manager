@@ -42,7 +42,7 @@ class Files(BaseHTTPRequestHandler):
         pass
 
 
-def browser_session(name, chromium, firefox):
+def browser_session(name, chromium, firefox, log):
     if name == 'Firefox':
         options = webdriver.FirefoxOptions()
         options.add_argument('-headless')
@@ -64,6 +64,9 @@ def browser_session(name, chromium, firefox):
     options.enable_webextensions = True
     options.add_argument('--headless=new')
     options.add_argument('--lang=en-US')
+    options.add_argument('--enable-logging')
+    options.add_argument(f'--log-file={log}')
+    options.add_argument('--vmodule=launch_context*=1')
     service_class = ChromeService if chrome else EdgeService
     binary = 'chromedriver.exe' if chrome else 'msedgedriver.exe'
     service = service_class(str(Path(os.environ[f'{name.upper()}WEBDRIVER']) / binary))
@@ -81,7 +84,12 @@ def popup_download(driver, url, action):
     driver.find_element(By.ID, 'urls').send_keys(url)
     driver.find_element(By.ID, action).click()
     try:
-        WebDriverWait(driver, 40).until(lambda d: 'Accepted by NDM' in d.find_element(By.ID, 'result').text)
+        def result(d):
+            status = d.find_element(By.ID, 'result').text
+            if 'Links are saved' in status and d.find_element(By.ID, action).is_enabled():
+                raise AssertionError(status)
+            return 'Accepted by NDM' in status and d.find_element(By.ID, action).is_enabled()
+        WebDriverWait(driver, 40).until(result)
     except Exception as error:
         raise AssertionError(f"{action} failed: {driver.find_element(By.ID, 'result').text}; "
                              f"{driver.find_element(By.ID, 'connection').text}") from error
@@ -100,6 +108,16 @@ def stop_desktop():
                    stderr=subprocess.DEVNULL, timeout=15, check=False)
 
 
+def native_probe(driver, kind='ping', url=None):
+    return driver.execute_async_script("""
+      const [kind, url, done] = arguments;
+      const api = globalThis.browser ?? globalThis.chrome;
+      const message = {version:1, request_id:'runner-probe', kind, urls:url?[url]:[],
+                       start:kind==='add', created_at:Math.floor(Date.now()/1000)};
+      api.runtime.sendNativeMessage('local.ndm.bridge',message).then(reply=>done({reply}),error=>done({error:String(error)}));
+    """, kind, url)
+
+
 def assert_registered(install):
     for name in ('Google\\Chrome', 'Microsoft\\Edge', 'Mozilla'):
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, f'Software\\{name}\\NativeMessagingHosts\\local.ndm.bridge') as key:
@@ -111,15 +129,23 @@ def assert_registered(install):
             assert f'chrome-extension://{CHROMIUM_ID}/' in manifest['allowed_origins']
 
 
-def check(name, chromium, firefox, base):
-    driver, popup = browser_session(name, chromium, firefox)
+def check(name, chromium, firefox, base, log):
+    driver, popup = browser_session(name, chromium, firefox, log)
     try:
         print(f'{name} {driver.capabilities["browserVersion"]}: loaded release extension', flush=True)
         driver.get(popup)
         wait = WebDriverWait(driver, 25)
         wait.until(lambda d: 'Waiting for NDM' in d.find_element(By.ID, 'connection').text)
+        probe = native_probe(driver)
+        print(f'{name} native probe with NDM closed: {probe}', flush=True)
+        assert probe.get('reply', {}).get('request_id') == 'runner-probe', probe
+        assert probe['reply']['accepted'] is False, probe
         cold = f'{name}-cold-{uuid.uuid4().hex}.bin'
-        popup_download(driver, f'{base}/{cold}', 'now')
+        try:
+            popup_download(driver, f'{base}/{cold}', 'now')
+        except AssertionError:
+            print(f'{name} direct download probe: {native_probe(driver, "add", f"{base}/{cold}")}', flush=True)
+            raise
         verify_file(cold)
         wait.until(lambda d: d.find_element(By.ID, 'connection').text == 'Desktop connected')
         queued = f'{name}-queued-{uuid.uuid4().hex}.bin'
@@ -156,8 +182,18 @@ with tempfile.TemporaryDirectory(prefix='ndm-extensions-') as temporary:
             threading.Thread(target=server.serve_forever, daemon=True).start()
             base = f'http://127.0.0.1:{server.server_address[1]}'
             try:
+                failures = []
                 for name in ('Chrome', 'Edge', 'Firefox'):
-                    check(name, chromium, firefox, base)
+                    log = root / f'{name}.log'
+                    try:
+                        check(name, chromium, firefox, base, log)
+                    except Exception as error:
+                        failures.append((name, str(error)))
+                        print(f'{name} failed: {error}', flush=True)
+                        if log.is_file():
+                            print('\n'.join(line for line in log.read_text(encoding='utf-8', errors='replace').splitlines()
+                                            if 'native messaging' in line.lower() or 'launch_context' in line.lower()), flush=True)
+                assert not failures, failures
             finally:
                 server.shutdown()
     finally:

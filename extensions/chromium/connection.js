@@ -1,12 +1,14 @@
-import { request } from './protocol.js';
+import { nativeFailure, request } from './protocol.js';
 
 // The background owns this port; closing the popup cannot close the desktop link.
 export function createConnection(api, timers = globalThis) {
   let port, pending, retry, stopped = false;
   let status = { connected: false, reason: 'connecting' };
   function publish(connected, reason) {
-    status = { connected, reason };
-    void api.storage.local.set({ connectionStatus: status }).catch(() => {});
+    if (status.connected !== connected || status.reason !== reason) {
+      status = { connected, reason };
+      void api.storage.local.set({ connectionStatus: status }).catch(() => {});
+    }
     return status;
   }
   function schedule() {
@@ -26,16 +28,26 @@ export function createConnection(api, timers = globalThis) {
     const active = api.runtime.connectNative('local.ndm.bridge');
     port = active;
     active.onMessage.addListener(message => {
-      if (stopped || port !== active || !pending || message?.request_id !== pending.id) return;
-      if (message.version !== 1 || typeof message.accepted !== 'boolean') return;
+      if (stopped || port !== active || !pending) return;
+      if (message?.request_id === '' && message.accepted === false && nativeFailure(message.error) === 'setup') {
+        port = undefined;
+        finish(false, 'setup');
+        active.disconnect();
+        return;
+      }
+      if (message?.request_id !== pending.id) return;
+      if (message.version !== 1 || typeof message.accepted !== 'boolean') {
+        finish(false, 'version');
+        return;
+      }
       finish(message.accepted, message.accepted ? 'connected' : 'desktop-unavailable');
     });
-    active.onDisconnect.addListener(() => {
-      // Reading lastError acknowledges Chromium's disconnect diagnostic.
-      void api.runtime.lastError;
+    active.onDisconnect.addListener(disconnected => {
+      // Firefox exposes port.error; Chromium uses runtime.lastError.
+      const reason = nativeFailure(api.runtime.lastError ?? disconnected?.error);
       if (stopped || port !== active) return;
       port = undefined;
-      finish(false, 'host-unavailable');
+      finish(false, reason === 'setup' ? 'setup' : 'host-unavailable');
     });
     return active;
   }

@@ -1,9 +1,10 @@
 {
   "manifest_version": 3,
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtPdg2etrVY6a5170XWf/IjOfa6AOB6L4xsmZnWYCegBeKPfrIY2GhdDPU2Bfp/MYVxCxGyFyWPi+IfbzhO7Cdb7oP+cba1veAyRBraX7Cb7MKSJXAJKdfLK76EYp1T0yS0joSKAS8ZbwfNCpvNlwQ8aUqKbWxK8Wyip664UBWXtGtavlnGd6tdn/lHgh5nkJ+ZdeCGr1de376jfH6OE7QxMDIX5IL4rkof3+zv3vGUOJ25LR8x1JZ/jiM90GQiW58+o1pfsNls/6pfPx3dsGtQZk0EeyB/qmuJNxccJ2oCthd9R7gBOuFs6Vvrl/xURrAk1hxr4Q1MJrRQZ1/P95FwIDAQAB",
   "name": "NDM — Next Download Manager",
   "description": "Send direct file links to your local NDM desktop app, only when you choose.",
-  "version": "0.1.5",
-  "minimum_chrome_version": "116",
+  "version": "0.1.6",
+  "minimum_chrome_version": "123",
   "default_locale": "en",
   "permissions": [
     "contextMenus",
@@ -29,7 +30,7 @@
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'none'"
   },
-  "version_name": "0.1.0-alpha.6",
+  "version_name": "0.1.0-alpha.7",
   "icons": {
     "16": "icons/16.png",
     "32": "icons/32.png",

@@ -1,5 +1,10 @@
+!macro NSIS_HOOK_POSTINSTALL
+  ExecWait '"$INSTDIR\ndm-native-host.exe" --register' $0
+  ${If} $0 != 0
+    DetailPrint "NDM could not register the browser connection. Open NDM and choose Check connection to retry."
+  ${EndIf}
+!macroend
+
 !macro NSIS_HOOK_PREUNINSTALL
-  DeleteRegKey HKCU "Software\Google\Chrome\NativeMessagingHosts\local.ndm.bridge"
-  DeleteRegKey HKCU "Software\Microsoft\Edge\NativeMessagingHosts\local.ndm.bridge"
-  DeleteRegKey HKCU "Software\Mozilla\NativeMessagingHosts\local.ndm.bridge"
+  ExecWait '"$INSTDIR\ndm-native-host.exe" --unregister'
 !macroend

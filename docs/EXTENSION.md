@@ -1,97 +1,49 @@
-# Firefox / Chrome / Edge native messaging
+﻿# Connect NDM to Chrome, Edge, or Firefox
 
-## Firefox (140 or later)
+[راهنمای فارسی](EXTENSION.fa.md) · [Latest release](https://github.com/YeloBoi/next-download-manager/releases/latest)
 
-Download the **firefox.zip** asset from the latest release, not chromium.zip.
-In Firefox open `about:debugging#/runtime/this-firefox`, select **Load Temporary
-Add-on**, and select the downloaded ZIP (or its extracted manifest.json).
-This development extension is unsigned: it remains installed until Firefox
-restarts. Permanent installation needs Mozilla signing, which has not been done.
-Do not disable signature enforcement or change Firefox security settings.
+Update both NDM and the browser extension from the same release. The Windows
+installer registers the native host for your current user. If you use the portable
+ZIP, open ndm.exe once; it registers the companion ndm-native-host.exe in the same
+folder. **Check connection** in NDM repairs that registration.
 
-For desktop delivery, update **both the desktop app and extension to alpha.5 or
-later**, then open NDM once. Firefox native-host registration is automatic at app
-startup; no extension ID, PowerShell command or open popup is needed. The background
-owns a persistent native port, probes every five seconds and reconnects on failure.
-The desktop card updates automatically. Check connection also repairs Firefox
-registration if needed. Keep the companion ndm-native-host.exe beside ndm.exe.
+## Chrome and Edge
 
-For older releases or manual troubleshooting only, run from the app folder:
+1. Extract the **chromium.zip** asset to a folder you can keep.
+2. Open `chrome://extensions` or `edge://extensions`, enable **Developer mode**, and
+   choose **Load unpacked**. Select the folder that contains manifest.json.
+3. Disable the old unpacked NDM extension if you see two entries. The current build
+   has a fixed ID (`llccemgchkhblimpddegikfekglcjoen`) that is registered automatically
+   for both browsers. No extension ID or PowerShell command is needed.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\Register-NativeHost.ps1 -Browser Firefox -HostPath "$PWD\ndm-native-host.exe"
-```
+The extension is not currently published in Chrome Web Store or Edge Add-ons.
 
-Firefox uses the fixed ID `ndm@yeloboi.github.io` and the current user's Mozilla
-native-host registry key. Registering Firefox preserves Chrome/Edge registration.
-The Chromium-only `background.service_worker` manifest cannot load in Firefox;
-the Firefox package instead supplies `background.scripts` with ES modules.
+## Firefox 140 or later
 
-## Chrome / Edge
+Open `about:debugging#/runtime/this-firefox`, select **Load Temporary Add-on**, and
+choose **firefox.zip** from the release (or its extracted manifest.json). Reload
+it after restarting Firefox. The package is unsigned; permanent installation
+requires Mozilla signing. It uses Firefox background scripts rather than the
+Chromium service worker and has the fixed ID `ndm@yeloboi.github.io`.
 
-[راهنمای فارسی نصب و اتصال](EXTENSION.fa.md)
+## Download a file
 
-1. Open the [latest release](https://github.com/YeloBoi/next-download-manager/releases/latest).
-   Install the Windows x64 `*-setup.exe`, or extract the portable ZIP. Also extract
-   the `*-chromium.zip` extension. Keep `ndm-native-host.exe` beside `ndm.exe`;
-   run the registration command from that installed or portable app folder.
-2. Open `chrome://extensions` or `edge://extensions`, enable Developer mode and
-   choose **Load unpacked** for the extracted extension directory.
-3. Copy the displayed extension ID. Run the following yourself, replacing the ID:
+Choose **Download with NDM** from a direct link's context menu. To collect links
+first, choose **Add link to NDM selection**, paste links into the extension, or
+use **Find links on this page** on an ordinary webpage. Then choose **Download all**
+or **Add all to queue**. Downloading opens NDM or restores the existing window.
+An explicitly paused or stopped queue still needs **Start queue** in NDM.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\Register-NativeHost.ps1 -ExtensionId YOUR_EXTENSION_ID -HostPath "$PWD\ndm-native-host.exe"
-```
+The extension sends only selected HTTP(S) URLs. Links that need a browser login,
+temporary blob URLs, and streamed video may not be direct downloads. Selections
+stay on your computer and unacknowledged links remain available for retry.
+There is no automatic interception of ordinary browser downloads.
 
-The process-scoped ExecutionPolicy option applies to this supplied setup script;
-it does not permanently change the system policy. The script registers only
-the current user's Chrome and Edge native-host keys. It allows exactly the
-provided extension origin. Register again if the unpacked extension ID changes.
-Each registration currently replaces the previous allowed ID.
+The desktop card disappears while connected and returns after the last browser
+heartbeat expires. The popup can close when focus moves to NDM; the background
+keeps the connection and stored selection.
 
-4. Choose **Download with NDM** from a link's context menu to send that link
-   immediately. The registered host opens the sibling `ndm.exe` if necessary.
-   An explicitly paused/stopped queue remains paused; use **Start queue** in NDM.
-   **Add link to NDM selection** collects a link without starting a download.
-5. Collect from several tabs, then open the extension popup. Review the numbered
-   selection, move/remove links, or find links on the current page and explicitly
-   **Add to selection**. Choose **Download all** or **Add all to queue**.
-   Selections are saved locally across popup closure and worker suspension.
-   Failed sends remain for retry; only acknowledged links leave the selection.
-
-The host launches only the sibling desktop executable on an explicit add request;
-background connection checks never launch it. Explicit browser downloads show or
-restore the existing window. On Windows the desktop breaks away from the browser
-native-host job, so acknowledging a link does not terminate NDM or its download.
-The connection card is hidden while connected and returns on disconnection.
-A failure leaves normal browser downloads intact.
-Native messages have version, freshness, size,
-URL and batch validation. The native host exchanges bounded spool files with the
-desktop in the current user's `%LOCALAPPDATA%\NDM\bridge` directory; it opens no
-TCP listener. Same-user local processes are within the trust boundary. No arbitrary
-commands or user-selected destination paths are accepted through the protocol.
-
-The installer includes the native host and registration scripts. Firefox registration
-is automatic on NDM startup. Chrome/Edge registration still requires the actual
-unpacked extension ID and remains an explicit post-install step. Installer uninstall removes the native-host registry keys;
-run `Unregister-NativeHost.ps1` to unregister a portable installation. Queue data
-and downloaded files are retained.
-
-The desktop card uses the most recent valid native-message handshake, expiring
-after 15 seconds. The background port probes every five seconds, independently
-of the popup; a browser alarm is a recovery fallback. Sleep or delayed background
-work can temporarily show disconnected. This
-does not prove the extension is uninstalled. The popup displays the same background connection state.
-The card's setup/manage action opens this real guide; automatic browser installation
-is not performed. The extension adds only the `alarms` permission for these checks.
-
-If connection fails, check the extension ID matches, the host and sibling app exist,
-and the HKCU native-host manifest points to the installed executable. Neither
-Chrome Web Store nor Edge Add-ons publication has been performed.
-
-This is an unsigned development extension. Automatic Chrome/Edge ID registration,
-visual/Shift selection, groups, filters, Save for later, source-page metadata and
-per-download completion notifications remain in the [implementation ledger](IMPLEMENTATION_STATUS.md).
-Retries deduplicate URLs still in the queue/history. There is no durable request-ID
-ledger after an entry has been removed. Actual app-closed/native/browser installation
-behavior still requires Windows acceptance testing.
+For custom Chrome/Edge builds only, use `ndm-native-host.exe --register <extension-id>`
+from the application folder. This preserves the official ID and previously
+registered IDs. Uninstalling or running `Unregister-NativeHost.ps1` removes the
+registration owned by that NDM copy; download and queue data remain.

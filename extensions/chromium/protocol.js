@@ -1,5 +1,14 @@
 import { extensionApi } from './api.js';
 
+export function nativeFailure(error) {
+  const message = String(error?.message ?? error ?? '');
+  if (/host not found|no such native application|not registered|forbidden|not allowed to connect|access.*denied/i.test(message)) return 'setup';
+  if (/could not open NDM|did not acknowledge the request/i.test(message)) return 'launch';
+  if (/invalid response|invalid bridge message/i.test(message)) return 'version';
+  if (/message limit/i.test(message)) return 'batch';
+  return 'delivery';
+}
+
 export function validateUrls(urls) {
   if (!Array.isArray(urls) || urls.length < 1 || urls.length > 100) throw new Error('Select between 1 and 100 links.');
   const normalized = urls.map(input => {

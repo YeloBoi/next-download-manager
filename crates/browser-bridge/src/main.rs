@@ -1,70 +1,102 @@
 use ndm_browser_bridge::{
-    bridge_directory, read_frame, write_frame, Request, Response, MAX_MESSAGE,
+    bridge_directory, read_frame, write_frame, Request, Response, CHROMIUM_MANIFEST, FIREFOX_ID,
+    FIREFOX_MANIFEST, MAX_MESSAGE,
 };
 
 #[tokio::main]
 async fn main() {
-    // Each browser supplies its caller identity differently.
-    loop {
-        if let Err(error) = run().await {
-            let response = Response {
-                version: 1,
-                request_id: String::new(),
-                accepted: false,
-                error: Some(error),
-            };
-            if let Ok(bytes) = serde_json::to_vec(&response) {
-                let _ = write_frame(&mut std::io::stdout().lock(), &bytes);
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    #[cfg(windows)]
+    if let [mode, rest @ ..] = args.as_slice() {
+        if matches!(mode.as_str(), "--register" | "--unregister") {
+            let result = configure(mode, rest);
+            if let Err(error) = result {
+                eprintln!("{error}");
+                std::process::exit(1);
             }
-            break;
+            return;
         }
+    }
+    if let Err(error) = run(&args).await {
+        let _ = reply(&failure(String::new(), error));
     }
 }
 
-async fn run() -> Result<(), String> {
-    let directory = bridge_directory()?;
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    if firefox_caller(&args, &directory) {
-        let manifest: serde_json::Value = serde_json::from_slice(
-            &tokio::fs::read(directory.join("local.ndm.bridge.firefox.json"))
-                .await
-                .map_err(|_| "Register the Firefox native host first.".to_string())?,
-        )
-        .map_err(|e| e.to_string())?;
-        let allowed = manifest["allowed_extensions"]
-            .as_array()
-            .is_some_and(|ids| ids.iter().any(|id| id.as_str() == Some(args[1].as_str())));
-        if !allowed {
-            return Err("This Firefox extension is not allowed to connect.".into());
-        }
-    } else {
-        let allowed: Vec<String> = serde_json::from_slice(
-            &tokio::fs::read(directory.join("allowed-origins.json"))
-                .await
-                .map_err(|_| {
-                    "Native host is not registered. Follow the extension setup guide.".to_string()
-                })?,
-        )
-        .map_err(|e| e.to_string())?;
-        let origin = args.first().ok_or("Missing browser origin.")?;
-        if !allowed.contains(origin) {
-            return Err("This extension is not allowed to connect.".into());
-        }
+#[cfg(windows)]
+fn configure(mode: &str, args: &[String]) -> Result<(), String> {
+    let host = std::env::current_exe().map_err(|e| e.to_string())?;
+    match (mode, args) {
+        ("--unregister", []) => ndm_browser_bridge::unregister_hosts(&host),
+        ("--register", []) => ndm_browser_bridge::register_hosts(&host, None),
+        ("--register", [id]) => ndm_browser_bridge::register_hosts(&host, Some(id)),
+        _ => Err(
+            "Use --register with an optional extension ID, or --unregister without arguments."
+                .into(),
+        ),
     }
-    let bytes = read_frame(&mut std::io::stdin().lock())?;
-    let request: Request = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
-    request.validate()?;
+}
+
+fn failure(request_id: String, error: String) -> Response {
+    Response {
+        version: 1,
+        request_id,
+        accepted: false,
+        error: Some(error),
+    }
+}
+
+fn reply(response: &Response) -> Result<(), String> {
+    write_frame(
+        &mut std::io::stdout().lock(),
+        &serde_json::to_vec(response).map_err(|e| e.to_string())?,
+    )
+}
+
+async fn run(args: &[String]) -> Result<(), String> {
+    let directory = bridge_directory()?;
+    let (filename, field, caller) = if firefox_caller(args, &directory) {
+        (FIREFOX_MANIFEST, "allowed_extensions", FIREFOX_ID)
+    } else {
+        (
+            CHROMIUM_MANIFEST,
+            "allowed_origins",
+            args.first().ok_or("Missing browser origin.")?.as_str(),
+        )
+    };
+    let manifest: serde_json::Value = serde_json::from_slice(
+        &tokio::fs::read(directory.join(filename))
+            .await
+            .map_err(|_| {
+                "Native host is not registered. Open NDM and repair the browser connection."
+                    .to_string()
+            })?,
+    )
+    .map_err(|e| e.to_string())?;
+    if !manifest[field]
+        .as_array()
+        .is_some_and(|ids| ids.iter().any(|id| id.as_str() == Some(caller)))
+    {
+        return Err("This extension is not allowed to connect.".into());
+    }
+    while let Ok(bytes) = read_frame(&mut std::io::stdin().lock()) {
+        let request: Request = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
+        let response = match request.validate() {
+            Ok(()) => forward(&directory, &request, &bytes).await,
+            Err(error) => Err(error),
+        };
+        let response = response.unwrap_or_else(|error| failure(request.request_id, error));
+        reply(&response)?;
+    }
+    Ok(())
+}
+
+async fn forward(
+    directory: &std::path::Path,
+    request: &Request,
+    bytes: &[u8],
+) -> Result<Response, String> {
     let id = uuid::Uuid::new_v4().to_string();
     let path = directory.join(&id);
-    tokio::fs::write(path.with_extension("request.tmp"), &bytes)
-        .await
-        .map_err(|e| e.to_string())?;
-    tokio::fs::rename(
-        path.with_extension("request.tmp"),
-        path.with_extension("request"),
-    )
-    .await
-    .map_err(|e| e.to_string())?;
     // Launch only the sibling desktop executable, never a URL or a shell command.
     // Pings do not start the application; only an explicit download request does.
     if request.kind == "add" {
@@ -82,12 +114,20 @@ async fn run() -> Result<(), String> {
             .stderr(std::process::Stdio::null())
             .spawn()
         {
-            let _ = tokio::fs::remove_file(path.with_extension("request")).await;
             return Err(format!(
                 "Could not open NDM: {error}. Keep ndm.exe beside the native host."
             ));
         }
     }
+    tokio::fs::write(path.with_extension("request.tmp"), bytes)
+        .await
+        .map_err(|e| e.to_string())?;
+    tokio::fs::rename(
+        path.with_extension("request.tmp"),
+        path.with_extension("request"),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
     let started = std::time::Instant::now();
     loop {
         if let Ok(bytes) = tokio::fs::read(path.with_extension("response")).await {
@@ -96,28 +136,16 @@ async fn run() -> Result<(), String> {
             }
             let mut response: Response =
                 serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
-            response.request_id = request.request_id;
+            response.request_id.clone_from(&request.request_id);
             let _ = tokio::fs::remove_file(path.with_extension("response")).await;
-            return write_frame(
-                &mut std::io::stdout().lock(),
-                &serde_json::to_vec(&response).map_err(|e| e.to_string())?,
-            );
+            return Ok(response);
         }
         if started.elapsed()
             > std::time::Duration::from_secs(if request.kind == "ping" { 2 } else { 30 })
         {
             let _ = tokio::fs::remove_file(path.with_extension("request")).await;
             if request.kind == "ping" {
-                let response = Response {
-                    version: 1,
-                    request_id: request.request_id,
-                    accepted: false,
-                    error: Some("Open NDM to connect automatically.".into()),
-                };
-                return write_frame(
-                    &mut std::io::stdout().lock(),
-                    &serde_json::to_vec(&response).map_err(|e| e.to_string())?,
-                );
+                return Err("Open NDM to connect automatically.".into());
             }
             return Err("NDM did not acknowledge the request. Open the desktop app and try again; the browser download has been retained.".into());
         }
@@ -127,8 +155,8 @@ async fn run() -> Result<(), String> {
 
 fn firefox_caller(args: &[String], directory: &std::path::Path) -> bool {
     args.len() == 2
-        && std::path::Path::new(&args[0]) == directory.join("local.ndm.bridge.firefox.json")
-        && args[1] == "ndm@yeloboi.github.io"
+        && std::path::Path::new(&args[0]) == directory.join(FIREFOX_MANIFEST)
+        && args[1] == FIREFOX_ID
 }
 
 #[cfg(test)]

@@ -5,52 +5,14 @@ use std::io::{Read, Write};
 pub const MAX_MESSAGE: usize = 256 * 1024;
 pub const HOST: &str = "local.ndm.bridge";
 pub const FIREFOX_ID: &str = "ndm@yeloboi.github.io";
+pub const FIREFOX_MANIFEST: &str = "local.ndm.bridge.firefox.json";
+pub const CHROMIUM_MANIFEST: &str = "local.ndm.bridge.json";
+pub const CHROMIUM_ORIGIN: &str = "chrome-extension://llccemgchkhblimpddegikfekglcjoen/";
 
 #[cfg(windows)]
-pub fn register_firefox_host(host: &std::path::Path) -> Result<(), String> {
-    use std::os::windows::process::CommandExt;
-    if !host.is_file() {
-        return Err("NDM native host is missing. Reinstall the current NDM release.".into());
-    }
-    let directory = bridge_directory()?;
-    std::fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
-    let manifest = directory.join("local.ndm.bridge.firefox.json");
-    let temporary = directory.join("local.ndm.bridge.firefox.tmp");
-    let value = serde_json::json!({"name": HOST, "description": "NDM native messaging host",
-        "path": host, "type": "stdio", "allowed_extensions": [FIREFOX_ID]});
-    std::fs::write(
-        &temporary,
-        serde_json::to_vec(&value).map_err(|e| e.to_string())?,
-    )
-    .map_err(|e| e.to_string())?;
-    std::fs::rename(temporary, &manifest).map_err(|e| e.to_string())?;
-    let windows = std::env::var_os("SystemRoot").ok_or("Cannot locate Windows.")?;
-    let output = std::process::Command::new(
-        std::path::PathBuf::from(windows)
-            .join("System32")
-            .join("reg.exe"),
-    )
-    .args([
-        "ADD",
-        "HKCU\\Software\\Mozilla\\NativeMessagingHosts\\local.ndm.bridge",
-        "/ve",
-        "/t",
-        "REG_SZ",
-        "/d",
-    ])
-    .arg(&manifest)
-    .arg("/f")
-    .creation_flags(0x08000000)
-    .output()
-    .map_err(|e| e.to_string())?;
-    if !output.status.success() {
-        return Err(
-            "Windows could not register NDM for Firefox. Check access to your user registry."
-                .into(),
-        );
-    }
-    Ok(())
-}
+mod registration;
+#[cfg(windows)]
+pub use registration::{register_hosts, unregister_hosts};
 
 #[derive(Clone, Default)]
 pub struct ConnectionState(std::sync::Arc<std::sync::Mutex<Option<std::time::Instant>>>);

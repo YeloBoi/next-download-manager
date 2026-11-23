@@ -1,6 +1,6 @@
 import { extensionApi } from './api.js';
 const api = extensionApi();
-import { request, sendNative, validateUrls } from './protocol.js';
+import { nativeFailure, request, sendNative, validateUrls } from './protocol.js';
 import { mergeSelection, changeSelection } from './selection.js';
 import { createConnection } from './connection.js';
 
@@ -29,10 +29,11 @@ async function send(urls, start) {
     await save((await selection()).filter(url => !urls.includes(url)));
     await api.storage.local.set({ lastResult: 'accepted' });
     await api.action.setBadgeBackgroundColor({ color: '#245d9e' });
-  } catch {
-    await api.storage.local.set({ lastResult: 'failed' });
+  } catch (error) {
+    const reason = nativeFailure(error);
+    await api.storage.local.set({ lastResult: 'failed', lastFailure: reason });
     await api.action.setBadgeBackgroundColor({ color: '#ab3045' });
-    throw new Error('NDM did not acknowledge these links. They are saved; open NDM, check setup and retry.');
+    return reason;
   }
 }
 async function setup() {
@@ -46,20 +47,22 @@ async function setup() {
   await api.alarms.create('ndm-connection', { periodInMinutes: 1 });
   connection.start();
 }
-api.runtime.onInstalled.addListener(() => { void serialize(setup); });
-api.runtime.onStartup.addListener(() => { void serialize(setup); });
-api.storage.onChanged.addListener(changes => { if (changes.language) void serialize(setup); });
+const setupMenus = () => { void serialize(setup).catch(error => console.error('NDM extension setup failed:', error)); };
+api.runtime.onInstalled.addListener(setupMenus);
+api.runtime.onStartup.addListener(setupMenus);
+api.storage.onChanged.addListener(changes => { if (changes.language) setupMenus(); });
 api.alarms.onAlarm.addListener(alarm => { if (alarm.name === 'ndm-connection') connection.start(); });
 api.contextMenus.onClicked.addListener(info => {
+  if (!['ndm-link', 'ndm-select'].includes(info.menuItemId)) return;
   void serialize(async () => {
     const urls = validateUrls([info.linkUrl || info.srcUrl]);
     await save(mergeSelection(await selection(), urls));
-    if (info.menuItemId === 'ndm-link') await send(urls, true);
+    if (info.menuItemId === 'ndm-link' && await send(urls, true)) await api.action.setBadgeText({ text: '!' });
   }).catch(async () => {
-    await api.storage.local.set({ lastResult: 'failed' });
+    await api.storage.local.set({ lastResult: 'failed', lastFailure: 'invalid' });
     await api.action.setBadgeText({ text: '!' });
     await api.action.setBadgeBackgroundColor({ color: '#ab3045' });
-  });
+  }).catch(() => {});
 });
 api.runtime.onMessage.addListener((message, sender, reply) => {
   if (sender.id !== api.runtime.id || !sender.url?.startsWith(api.runtime.getURL(''))) return;
@@ -73,10 +76,15 @@ api.runtime.onMessage.addListener((message, sender, reply) => {
     if (message.operation === 'add') urls = await save(mergeSelection(urls, validateUrls(message.urls)));
     else if (['remove', 'move'].includes(message.operation)) urls = await save(changeSelection(urls, message.operation, message.url, message.offset));
     else if (message.operation === 'clear') urls = await save([]);
-    else if (message.operation === 'send') { await send(urls, message.start === true); urls = await selection(); }
+    else if (message.operation === 'send') {
+      if (!urls.length) return { ok: false, reason: 'empty' };
+      const reason = await send(urls, message.start === true);
+      if (reason) return { ok: false, reason };
+      urls = await selection();
+    }
     else if (message.operation !== 'get') throw new Error('Invalid selection operation.');
-    const { lastResult } = await api.storage.local.get('lastResult');
-    return { ok: true, urls, lastResult };
+    const { lastResult, lastFailure } = await api.storage.local.get(['lastResult', 'lastFailure']);
+    return { ok: true, urls, lastResult, lastFailure };
   }).then(reply, () => reply({ ok: false }));
   return true;
 });

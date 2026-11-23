@@ -48,11 +48,10 @@ Downloaded programs are never run automatically.
 
 ## Browser extension
 
-See [extension setup](docs/EXTENSION.md). Load the extracted `chromium` folder
-unpacked in Chrome or Edge. Register the native host for the extension ID, then
-keep NDM open. Link extraction runs only when requested; links must be selected
-and sent explicitly. Automatic interception is not implemented and the extension
-does not request downloads, cookie or history permissions.
+See [extension setup](docs/EXTENSION.md). Load `chromium.zip` unpacked in Chrome
+or Edge, or load `firefox.zip` as a temporary add-on in Firefox. The installer
+or the first launch of portable NDM registers the connection automatically for
+all three. Only links you select and send are shared with NDM.
 
 [راهنمای فارسی نصب و اتصال افزونه](docs/EXTENSION.fa.md)
 

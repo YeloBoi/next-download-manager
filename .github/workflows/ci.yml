@@ -38,12 +38,21 @@ jobs:
       - run: cargo check --workspace --locked
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: cargo test --workspace --locked
-      - name: Check automatic Firefox registration and persistent native messages on hosted Windows
+      - name: Check browser registration and persistent native messages on hosted Windows
         run: cargo test -p ndm-browser-bridge --test native_connection --locked -- --ignored
       - name: Build Windows installer and portable archive
         run: ./scripts/Build-Artifacts.ps1
       - name: Check real desktop cold and connected browser downloads on hosted Windows
         run: node scripts/Check-Browser-Download.mjs
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify installed NDM downloads in Chrome, Edge and Firefox on hosted Windows
+        env:
+          MOZ_REMOTE_ALLOW_SYSTEM_ACCESS: '1'
+        run: |
+          python -m pip install selenium==4.53.0
+          python scripts/Check-Installed-Extensions.py
       - uses: actions/upload-artifact@v4
         with:
           name: ndm-interface-previews

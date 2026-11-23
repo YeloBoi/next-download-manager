@@ -1,3 +1,13 @@
+# NDM 0.1.0-alpha.7 — Automatic connection for Chrome, Edge, and Firefox
+
+- The Windows installer and NDM startup register native messaging for all three browsers. The release Chrome/Edge extension keeps one ID regardless of its unpacked folder; no manual PowerShell command is needed.
+- Use the new extension and app together. Replace the old unpacked Chrome/Edge extension to avoid two NDM toolbar icons. Firefox still requires Load Temporary Add-on after a browser restart.
+- Download all can start the same link after Add all to queue without creating a duplicate. Explicit queue pause and scheduling settings still apply.
+- The popup preserves failed links and distinguishes registration, launch, and version problems. The desktop connection card stays hidden while connected.
+- Release gates include the installed NDM executable and packaged extensions in actual Windows Chrome, Edge, and Firefox, with HTTP file hashes checked after download.
+
+Older release notes (historical behavior):
+
 # NDM 0.1.0-alpha.6 - Browser downloads open and survive Firefox replies
 
 - Fix Windows native-host child lifetime: the desktop uses CREATE_BREAKAWAY_FROM_JOB so Firefox closing a one-shot native message cannot kill NDM and its download.

@@ -1,11 +1,7 @@
+﻿param([string]$HostPath = (Join-Path $PSScriptRoot 'ndm-native-host.exe'))
 $ErrorActionPreference = 'Stop'
-foreach ($browser in @('Google\Chrome','Microsoft\Edge','Mozilla')) {
-  $key = "HKCU:\Software\$browser\NativeMessagingHosts\local.ndm.bridge"
-  if (Test-Path -LiteralPath $key) { Remove-Item -LiteralPath $key }
-}
-$bridgeDirectory = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'NDM\bridge'
-foreach ($name in @('allowed-origins.json','local.ndm.bridge.json','local.ndm.bridge.firefox.json')) {
-  $path = Join-Path $bridgeDirectory $name
-  if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path }
-}
-Write-Output 'NDM native-host registration removed. Downloads and queue data were retained.'
+$resolvedHost = (Resolve-Path -LiteralPath $HostPath).Path
+if ([IO.Path]::GetFileName($resolvedHost) -ne 'ndm-native-host.exe') { throw 'Select the NDM native-host executable.' }
+& $resolvedHost --unregister
+if ($LASTEXITCODE -ne 0) { throw 'NDM native-host unregistration failed.' }
+Write-Output 'Browser registration for this NDM copy was removed. Downloads and queue data were retained.'

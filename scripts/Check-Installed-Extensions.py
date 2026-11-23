@@ -1,0 +1,165 @@
+"""Exercise release packages against real browsers on an isolated GitHub Windows runner."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import socketserver
+import subprocess
+import tempfile
+import threading
+import time
+import uuid
+import winreg
+import zipfile
+from http.server import BaseHTTPRequestHandler
+
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service as ChromeService
+from selenium.webdriver.common.by import By
+from selenium.webdriver.edge.service import Service as EdgeService
+from selenium.webdriver.firefox.service import Service as FirefoxService
+from selenium.webdriver.support.ui import WebDriverWait
+
+assert os.environ.get('GITHUB_ACTIONS') == 'true'
+CHROMIUM_ID = 'llccemgchkhblimpddegikfekglcjoen'
+FIREFOX_ID = 'ndm@yeloboi.github.io'
+ARTIFACTS = Path('.artifacts').resolve()
+DATA = bytes(range(251)) * 512
+DOWNLOADS = Path(os.environ['USERPROFILE']) / 'Downloads'
+RECEIVED = set()
+
+
+class Files(BaseHTTPRequestHandler):
+    def do_GET(self):
+        RECEIVED.add(self.path)
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/octet-stream')
+        self.send_header('Content-Length', str(len(DATA)))
+        self.end_headers()
+        self.wfile.write(DATA)
+
+    def log_message(self, *_):
+        pass
+
+
+def browser_session(name, chromium, firefox):
+    if name == 'Firefox':
+        options = webdriver.FirefoxOptions()
+        options.add_argument('-headless')
+        options.add_argument('--allow-system-access')
+        driver = webdriver.Firefox(options=options, service=FirefoxService(
+            str(Path(os.environ['GECKOWEBDRIVER']) / 'geckodriver.exe')))
+        try:
+            assert driver.install_addon(str(firefox), temporary=True) == FIREFOX_ID
+            driver.set_context('chrome')
+            popup = driver.execute_script("return WebExtensionPolicy.getByID(arguments[0]).getURL('popup.html')", FIREFOX_ID)
+            driver.set_context('content')
+            return driver, popup
+        except BaseException:
+            driver.quit()
+            raise
+    chrome = name == 'Chrome'
+    options = webdriver.ChromeOptions() if chrome else webdriver.EdgeOptions()
+    options.enable_bidi = True
+    options.enable_webextensions = True
+    options.add_argument('--headless=new')
+    options.add_argument('--lang=en-US')
+    service_class = ChromeService if chrome else EdgeService
+    binary = 'chromedriver.exe' if chrome else 'msedgedriver.exe'
+    service = service_class(str(Path(os.environ[f'{name.upper()}WEBDRIVER']) / binary))
+    driver = (webdriver.Chrome if chrome else webdriver.Edge)(options=options, service=service)
+    try:
+        extension = driver.install_web_extension(str(chromium))
+        assert extension.id == CHROMIUM_ID, extension.id
+        return driver, f'chrome-extension://{extension.id}/popup.html'
+    except BaseException:
+        driver.quit()
+        raise
+
+
+def popup_download(driver, url, action):
+    driver.find_element(By.ID, 'urls').send_keys(url)
+    driver.find_element(By.ID, action).click()
+    try:
+        WebDriverWait(driver, 40).until(lambda d: 'Accepted by NDM' in d.find_element(By.ID, 'result').text)
+    except Exception as error:
+        raise AssertionError(f"{action} failed: {driver.find_element(By.ID, 'result').text}; "
+                             f"{driver.find_element(By.ID, 'connection').text}") from error
+
+
+def verify_file(filename):
+    file = DOWNLOADS / filename
+    deadline = time.monotonic() + 30
+    while not file.is_file() and time.monotonic() < deadline:
+        time.sleep(0.2)
+    assert file.is_file() and hashlib.sha256(file.read_bytes()).digest() == hashlib.sha256(DATA).digest(), filename
+
+
+def stop_desktop():
+    subprocess.run(['taskkill', '/im', 'ndm.exe', '/f'], stdout=subprocess.DEVNULL,
+                   stderr=subprocess.DEVNULL, timeout=15, check=False)
+
+
+def assert_registered(install):
+    for name in ('Google\\Chrome', 'Microsoft\\Edge', 'Mozilla'):
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, f'Software\\{name}\\NativeMessagingHosts\\local.ndm.bridge') as key:
+            manifest = json.loads(Path(winreg.QueryValueEx(key, '')[0]).read_bytes())
+        assert Path(manifest['path']) == install / 'ndm-native-host.exe', manifest
+        if name == 'Mozilla':
+            assert manifest['allowed_extensions'] == [FIREFOX_ID]
+        else:
+            assert f'chrome-extension://{CHROMIUM_ID}/' in manifest['allowed_origins']
+
+
+def check(name, chromium, firefox, base):
+    driver, popup = browser_session(name, chromium, firefox)
+    try:
+        print(f'{name} {driver.capabilities["browserVersion"]}: loaded release extension', flush=True)
+        driver.get(popup)
+        wait = WebDriverWait(driver, 25)
+        wait.until(lambda d: 'Waiting for NDM' in d.find_element(By.ID, 'connection').text)
+        cold = f'{name}-cold-{uuid.uuid4().hex}.bin'
+        popup_download(driver, f'{base}/{cold}', 'now')
+        verify_file(cold)
+        wait.until(lambda d: d.find_element(By.ID, 'connection').text == 'Desktop connected')
+        queued = f'{name}-queued-{uuid.uuid4().hex}.bin'
+        # The app queue is still running after cold delivery. Stop/reopen to check queue-only semantics.
+        stop_desktop()
+        wait.until(lambda d: 'Waiting for NDM' in d.find_element(By.ID, 'connection').text)
+        popup_download(driver, f'{base}/{queued}', 'queue')
+        time.sleep(1)
+        assert f'/{queued}' not in RECEIVED, 'Adding to a stopped queue must not fetch a file'
+        popup_download(driver, f'{base}/{queued}', 'now')
+        verify_file(queued)
+        wait.until(lambda d: not d.find_elements(By.CSS_SELECTOR, '#selection li details'))
+        print(f'{name} passed: installer registration, actual offline cold launch, automatic connection, queue-only, start existing queue item and complete files.', flush=True)
+    finally:
+        driver.quit()
+        stop_desktop()
+
+
+with tempfile.TemporaryDirectory(prefix='ndm-extensions-') as temporary:
+    root = Path(temporary)
+    install = root / 'installed'
+    setup, = ARTIFACTS.glob('*-setup.exe')
+    firefox, = ARTIFACTS.glob('*-firefox.zip')
+    chromium_zip, = ARTIFACTS.glob('*-chromium.zip')
+    chromium = root / 'chromium'
+    with zipfile.ZipFile(chromium_zip) as archive:
+        archive.extractall(chromium)
+    # NSIS treats the final /D= argument as the entire path, without quotes.
+    subprocess.run(f'"{setup}" /S /D={install}', timeout=120, check=True)
+    try:
+        assert_registered(install)
+        stop_desktop()
+        with socketserver.ThreadingTCPServer(('127.0.0.1', 0), Files) as server:
+            threading.Thread(target=server.serve_forever, daemon=True).start()
+            base = f'http://127.0.0.1:{server.server_address[1]}'
+            try:
+                for name in ('Chrome', 'Edge', 'Firefox'):
+                    check(name, chromium, firefox, base)
+            finally:
+                server.shutdown()
+    finally:
+        stop_desktop()
+        subprocess.run([str(install / 'uninstall.exe'), '/S'], timeout=60, check=True)

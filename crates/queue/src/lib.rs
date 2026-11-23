@@ -271,17 +271,19 @@ impl Actor {
                     .map(|job| job.url.clone())
                     .collect();
                 let mut fresh = Vec::new();
+                let mut requested = HashMap::new();
                 for input in urls {
                     if input.len() > 16384 {
                         return Err("The URL exceeds the length limit.".into());
                     }
                     let url = validate_url(&input).map_err(|e| e.to_string())?.to_string();
+                    let order = requested.len();
+                    requested.entry(url.clone()).or_insert(order);
                     if seen.insert(url.clone()) {
                         fresh.push(url);
                     }
                 }
                 if !fresh.is_empty() {
-                    let old_len = self.snapshot.downloads.len();
                     // Box the shared add action rather than duplicate its validation and creation.
                     Box::pin(self.apply(Action::Add {
                         urls: fresh,
@@ -291,14 +293,24 @@ impl Actor {
                         sha256: None,
                     }))
                     .await?;
-                    if start {
-                        let jobs = self.snapshot.downloads.split_off(old_len);
+                }
+                if start {
+                    // A new Download now can start a URL previously added to the queue.
+                    let mut jobs: Vec<_> = self
+                        .snapshot
+                        .downloads
+                        .extract_if(.., |job| {
+                            job.status == Status::Queued && requested.contains_key(&job.url)
+                        })
+                        .collect();
+                    jobs.sort_by_key(|job| requested[&job.url]);
+                    if !jobs.is_empty() {
                         let next = self
                             .snapshot
                             .downloads
                             .iter()
                             .position(|job| job.status == Status::Queued)
-                            .unwrap_or(old_len);
+                            .unwrap_or(self.snapshot.downloads.len());
                         self.snapshot.downloads.splice(next..next, jobs);
                         if !self.snapshot.user_paused {
                             self.snapshot.running = true;

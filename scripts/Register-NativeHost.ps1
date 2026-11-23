@@ -1,33 +1,13 @@
-param(
+﻿param(
   [ValidatePattern('^[a-p]{32}$')][string]$ExtensionId,
-  [Parameter(Mandatory=$true)][string]$HostPath,
+  [string]$HostPath = (Join-Path $PSScriptRoot 'ndm-native-host.exe'),
+  # Accepted for callers of older releases. Registration now covers all browsers.
   [ValidateSet('Chromium','Firefox')][string]$Browser = 'Chromium'
 )
 $ErrorActionPreference = 'Stop'
 $resolvedHost = (Resolve-Path -LiteralPath $HostPath).Path
-if ([System.IO.Path]::GetFileName($resolvedHost) -ne 'ndm-native-host.exe') { throw 'Select the NDM native-host executable.' }
-$bridgeDirectory = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'NDM\bridge'
-New-Item -ItemType Directory -Path $bridgeDirectory -Force | Out-Null
-$origin = "chrome-extension://$ExtensionId/"
-$manifest = @{ name = 'local.ndm.bridge'; description = 'NDM native messaging host'; path = $resolvedHost; type = 'stdio'; allowed_origins = @($origin) }
-$manifestPath = Join-Path $bridgeDirectory 'local.ndm.bridge.json'
-$utf8 = New-Object System.Text.UTF8Encoding($false)
-if ($Browser -eq 'Firefox') {
-  $manifest = @{ name = 'local.ndm.bridge'; description = 'NDM native messaging host'; path = $resolvedHost; type = 'stdio'; allowed_extensions = @('ndm@yeloboi.github.io') }
-  $manifestPath = Join-Path $bridgeDirectory 'local.ndm.bridge.firefox.json'
-  [System.IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json), $utf8)
-  $key = 'HKCU:\Software\Mozilla\NativeMessagingHosts\local.ndm.bridge'
-  New-Item -Path $key -Force | Out-Null
-  Set-Item -LiteralPath $key -Value $manifestPath
-  Write-Output 'NDM native host registered for Firefox.'
-  return
-}
-if (-not $ExtensionId) { throw 'Supply the unpacked Chrome or Edge extension ID.' }
-[System.IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json), $utf8)
-[System.IO.File]::WriteAllText((Join-Path $bridgeDirectory 'allowed-origins.json'), (ConvertTo-Json -InputObject @($origin)), $utf8)
-foreach ($browser in @('Google\Chrome','Microsoft\Edge')) {
-  $key = "HKCU:\Software\$browser\NativeMessagingHosts\local.ndm.bridge"
-  New-Item -Path $key -Force | Out-Null
-  Set-Item -LiteralPath $key -Value $manifestPath
-}
-Write-Output 'NDM native host registered for the selected extension in Chrome and Edge.'
+if ([IO.Path]::GetFileName($resolvedHost) -ne 'ndm-native-host.exe') { throw 'Select the NDM native-host executable.' }
+if ($ExtensionId) { & $resolvedHost --register $ExtensionId }
+else { & $resolvedHost --register }
+if ($LASTEXITCODE -ne 0) { throw 'NDM native-host registration failed.' }
+Write-Output 'NDM native host registered for Firefox, Chrome and Edge.'

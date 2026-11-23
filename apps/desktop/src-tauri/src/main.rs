@@ -11,17 +11,18 @@ fn browser_connection(
     repair: Option<bool>,
 ) -> Result<ndm_browser_bridge::ConnectionStatus, String> {
     if repair == Some(true) {
-        setup_firefox()?;
+        setup_browser_hosts()?;
     }
     Ok(connection.status())
 }
 
-fn setup_firefox() -> Result<(), String> {
+fn setup_browser_hosts() -> Result<(), String> {
     #[cfg(windows)]
-    ndm_browser_bridge::register_firefox_host(
+    ndm_browser_bridge::register_hosts(
         &std::env::current_exe()
             .map_err(|e| e.to_string())?
             .with_file_name("ndm-native-host.exe"),
+        None,
     )?;
     Ok(())
 }
@@ -190,8 +191,8 @@ fn main() {
             let bridge_manager = manager.clone();
             let connection = ndm_browser_bridge::ConnectionState::default();
             app.manage(connection.clone());
-            if let Err(error) = setup_firefox() {
-                eprintln!("Firefox setup: {error}");
+            if let Err(error) = setup_browser_hosts() {
+                eprintln!("Browser setup: {error}");
             }
             tauri::async_runtime::spawn(async move {
                 if let Err(error) = ndm_browser_bridge::serve(bridge_manager, connection).await {

@@ -1,7 +1,8 @@
 #![cfg(windows)]
 
 use ndm_browser_bridge::{
-    bridge_directory, register_firefox_host, ConnectionState, Request, Response, FIREFOX_ID,
+    bridge_directory, register_hosts, ConnectionState, Request, Response, CHROMIUM_MANIFEST,
+    CHROMIUM_ORIGIN, FIREFOX_ID, FIREFOX_MANIFEST,
 };
 use ndm_core::Settings;
 use ndm_queue::Manager;
@@ -12,9 +13,17 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 async fn automatic_registration_and_background_reconnection() {
     assert_eq!(std::env::var("GITHUB_ACTIONS").as_deref(), Ok("true"));
     let host = std::path::Path::new(env!("CARGO_BIN_EXE_ndm-native-host"));
-    register_firefox_host(host).expect("automatic registration");
     let directory = bridge_directory().expect("bridge folder");
-    let manifest = directory.join("local.ndm.bridge.firefox.json");
+    let other_id = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    register_hosts(host, Some(other_id)).expect("manual compatibility registration");
+    register_hosts(host, None).expect("automatic registration");
+    let chromium: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(directory.join(CHROMIUM_MANIFEST)).unwrap()).unwrap();
+    assert_eq!(
+        chromium["allowed_origins"],
+        serde_json::json!([format!("chrome-extension://{other_id}/"), CHROMIUM_ORIGIN])
+    );
+    let manifest = directory.join(FIREFOX_MANIFEST);
     let registration: serde_json::Value =
         serde_json::from_slice(&std::fs::read(&manifest).unwrap()).unwrap();
     assert_eq!(
@@ -22,16 +31,19 @@ async fn automatic_registration_and_background_reconnection() {
         serde_json::json!([FIREFOX_ID])
     );
     assert_eq!(registration["path"], serde_json::json!(host));
-    let registry = std::process::Command::new("reg.exe")
-        .args([
-            "QUERY",
-            "HKCU\\Software\\Mozilla\\NativeMessagingHosts\\local.ndm.bridge",
-            "/ve",
-        ])
-        .output()
-        .unwrap();
-    assert!(registry.status.success());
-    assert!(String::from_utf8_lossy(&registry.stdout).contains("local.ndm.bridge.firefox.json"));
+    for (browser, expected) in [
+        ("Mozilla", FIREFOX_MANIFEST),
+        ("Google\\Chrome", CHROMIUM_MANIFEST),
+        ("Microsoft\\Edge", CHROMIUM_MANIFEST),
+    ] {
+        let key = format!("HKCU\\Software\\{browser}\\NativeMessagingHosts\\local.ndm.bridge");
+        let registry = std::process::Command::new("reg.exe")
+            .args(["QUERY", &key, "/ve"])
+            .output()
+            .unwrap();
+        assert!(registry.status.success());
+        assert!(String::from_utf8_lossy(&registry.stdout).contains(expected));
+    }
     let mut child = tokio::process::Command::new(host)
         .arg(&manifest)
         .arg(FIREFOX_ID)

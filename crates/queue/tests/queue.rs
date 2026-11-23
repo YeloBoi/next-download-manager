@@ -105,6 +105,39 @@ async fn browser_batches_deduplicate_preserve_order_and_respect_durable_user_sto
     reopened.execute(Action::Shutdown).await.expect("shutdown");
 }
 #[tokio::test]
+async fn browser_download_now_starts_an_existing_queued_url_without_duplicating_it() {
+    let server = support::Server::start().await;
+    let dir = tempfile::tempdir().expect("dir");
+    let manager = Manager::open(
+        dir.path().join("state"),
+        Settings::new(dir.path().join("downloads")),
+    )
+    .await
+    .expect("open");
+    let url = server.url("plain");
+    manager
+        .execute(Action::BrowserAdd {
+            urls: vec![url.clone()],
+            start: false,
+        })
+        .await
+        .unwrap();
+    assert!(!manager.snapshot().running);
+    manager
+        .execute(Action::BrowserAdd {
+            urls: vec![url],
+            start: true,
+        })
+        .await
+        .unwrap();
+    let done = wait(&manager, |state| {
+        state.downloads[0].status == Status::Completed
+    })
+    .await;
+    assert_eq!(done.downloads.len(), 1);
+}
+
+#[tokio::test]
 async fn fifo_add_while_active_drain_and_persistent_reopen() {
     let server = support::Server::start().await;
     let dir = tempfile::tempdir().expect("dir");

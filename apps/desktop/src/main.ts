@@ -9,6 +9,7 @@ import { createElement, ArrowDownToLine, Plus, Layers, Play, Pause, Square, Sear
 import { bytes, percent, eta, escapeHtml as e, parseLinks } from './format.mjs';
 import { translator, type Key } from './i18n';
 import type { Download, Settings, Snapshot, Status } from './types';
+import { companionUI } from './companion-ui';
 
 const native = isTauri();
 const icons: Record<string, any> = { download:ArrowDownToLine, plus:Plus, layers:Layers, play:Play, pause:Pause, stop:Square, search:Search, settings:Gear, folder:FolderOpen, check:Check, error:CircleAlert, clock:Clock, down:ChevronDown, close:X, more:MoreHorizontal, up:ArrowUp, arrowDown:ArrowDown, file:File, link:Link, menu:Menu, retry:RotateCcw, trash:Trash2, copy:Copy, list:ListOrdered };
@@ -18,8 +19,9 @@ const appWindow = native ? getCurrentWindow() : null;
 let maximized = false;
 let focused = true;
 const root = document.querySelector<HTMLDivElement>('#app')!;
-let state: Snapshot = { downloads:[], running:false, draining:false, settings:{ directory:'', language:'en', theme:'dark', compact:false, concurrent_downloads:1, connections_per_file:1, global_connections:16, host_connections:8, speed_limit:0, resume_on_launch:false, stop_on_error:false, schedule_enabled:false, schedule_start:0, schedule_end:0, close_to_tray:false } };
+let state: Snapshot = { downloads:[], running:false, draining:false, settings:{ directory:'', language:'en', theme:'dark', compact:false, concurrent_downloads:1, connections_per_file:1, global_connections:16, host_connections:8, speed_limit:0, resume_on_launch:false, stop_on_error:false, schedule_enabled:false, schedule_start:0, schedule_end:0, close_to_tray:false, confirmless_add:false } };
 let t = translator('en');
+const features=companionUI(native,key=>t(key),toast);
 let filter = 'all';
 let search = '';
 let selected = new Set<string>();
@@ -66,22 +68,25 @@ function shell() {
       <nav>${filters.map(([key,glyph]) => `<button data-filter="${key}" class="nav-item ${!settingsView&&filter===key?'current':''}" ${!settingsView&&filter===key?'aria-current="page"':''}>${icon(glyph)}<span>${e(t(key as Key))}</span><span class="nav-count">${countFor(key)}</span></button>`).join('')}</nav>
       <div class="sidebar-bottom">
         <section class="extension-note" id="browser-connection" aria-label="${e(t('extension'))}" ${browserConnection.connected?'hidden':''}>${extensionMarkup()}</section>
-        <button class="nav-item ${settingsView?'current':''}" data-action="settings">${icon('settings')}<span>${e(t('settings'))}</span></button>
+        <button class="nav-item ${settingsView?'current':''}" data-action="settings">${icon('settings')}<span>${e(t('settings'))}</span><i id="update-marker" aria-label="${e(t('updateLabel'))}" title="${e(t('updateLabel'))}" hidden></i></button>
         <div class="build-label"><span>${e(t('version'))}</span><span class="local-indicator">${icon('folder')}</span></div>
       </div>
     </aside>
     <div class="workspace">
       <header class="topbar"><div class="breadcrumb"><button class="icon-button mobile-nav" data-action="nav" aria-label="${e(t('menu'))}">${icon('menu')}</button><span>NDM</span><span class="slash">/</span><span>${e(t(settingsView?'settings':'downloads'))}</span></div><span class="queue-state"><span class="state-dot ${state.running?'running':''}"></span><span data-queue-label>${e(t(queueLabel()))}</span></span></header>
       <main>${settingsView ? settingsMarkup() : downloadsMarkup()}</main>
+      <aside id="update-banner" class="update-banner" aria-live="polite" hidden></aside>
       <footer class="statusbar"><span class="total-speed">${icon('download')} <span data-total-speed dir="ltr">${bytes(totalSpeed())}/s</span></span><span data-summary>${summary()}</span><span class="status-privacy">${e(t('privacy'))}</span></footer>
     </div>
     <div id="toast" role="status" aria-live="polite" hidden></div>
     <dialog id="add-dialog" aria-labelledby="add-title"></dialog>
     <dialog id="confirm-dialog" aria-labelledby="confirm-title"></dialog>
+    <dialog id="release-dialog" aria-labelledby="release-title"></dialog>
     <div id="context-menu" class="context-menu" role="menu" hidden></div>
   `;
   if (!settingsView) { updateList(); updateDetails(); }
   bindShell();
+  features.paintAfterShell();
 }
 
 async function syncWindowState() {
@@ -178,11 +183,11 @@ function settingsMarkup() {
   const s=state.settings;
   return `<div class="title-row"><div><h1>${e(t('settings'))}</h1><p>${e(t('privacy'))}</p></div>${button('save-settings','save',undefined,'class="primary"')}</div><form id="settings-form">
     ${section('general','generalHint',`<div class="field-grid"><label class="field"><span>${e(t('language'))}</span><select name="language"><option value="en" ${s.language==='en'?'selected':''}>English</option><option value="fa" ${s.language==='fa'?'selected':''}>فارسی</option></select></label><label class="field"><span>${e(t('theme'))}</span><select name="theme">${['dark','light','system'].map(theme=>`<option value="${theme}" ${s.theme===theme?'selected':''}>${e(t(theme as Key))}</option>`).join('')}</select></label></div>${toggle('compact','compact',s.compact)}`)}
-    ${section('destination','destinationHint',`<label class="field"><span>${e(t('folder'))}</span><div class="joined"><input name="directory" value="${e(s.directory)}" dir="ltr" required>${button('browse-settings','browse','folder')}</div></label>`)}
+    ${section('destination','destinationHint',`<label class="field"><span>${e(t('folder'))}</span><div class="joined"><input name="directory" value="${e(s.directory)}" dir="ltr" required>${button('browse-settings','browse','folder')}</div></label>${toggle('confirmless_add','confirmLess',s.confirmless_add)}`)}
     ${section('network','networkHint',`<div class="field-grid">${field('concurrent_downloads','concurrent','number',s.concurrent_downloads,'min="1" max="8" required')}${field('connections_per_file','perFile','number',s.connections_per_file,'min="1" max="8" required')}${field('global_connections','global','number',s.global_connections,'min="1" max="64" required')}${field('host_connections','perHost','number',s.host_connections,'min="1" max="32" required')}</div>${field('speed_limit','limit','number',s.speed_limit/1024,'min="0" step="1" required')}<label class="field"><span>${e(t('profile'))}</span><select name="profile"><option value="-1">—</option><option value="0">${e(t('unlimited'))}</option><option value="1024">${e(t('work'))}</option><option value="256">${e(t('gaming'))}</option></select></label>`)}
     ${section('recovery','recoveryHint',`${toggle('resume_on_launch','autoResume',s.resume_on_launch)}${toggle('stop_on_error','stopError',s.stop_on_error)}${toggle('close_to_tray','tray',s.close_to_tray)}`)}
     ${section('schedule','scheduleHint',`${toggle('schedule_enabled','scheduleEnabled',s.schedule_enabled)}<div class="field-grid">${field('schedule_start','from','time',timeValue(s.schedule_start),'required')}${field('schedule_end','to','time',timeValue(s.schedule_end),'required')}</div>`)}
-    </form><div class="settings-tools"><h2>${e(t('tools'))}</h2>${button('import','import','link',!native?'disabled':'')}${button('export','export','list',!native?'disabled':'')}</div>`;
+    </form>${features.settings()}<div class="settings-tools"><h2>${e(t('tools'))}</h2>${button('import','import','link',!native?'disabled':'')}${button('export','export','list',!native?'disabled':'')}</div>`;
 }
 
 function bindShell() {
@@ -236,22 +241,90 @@ function refresh() {
   const queueButton=document.querySelector<HTMLButtonElement>('[data-action="toggle-queue"]');if(queueButton)queueButton.innerHTML=icon(state.running?'pause':'play')+`<span>${e(t(state.running?'pauseQueue':'start'))}</span>`;
 }
 
-function showAdd(multiple=false) {
+type Preview = { name:string; total:number|null; resumable:boolean|null; directory:string };
+function validUrls(urls:string[]) {
+  return urls.length>=1&&urls.length<=100&&urls.every(input=>{try{const url=new URL(input);return ['http:','https:'].includes(url.protocol)&&!url.username&&!url.password;}catch{return false;}});
+}
+function showAdd(multiple=false, initial:string[] = []) {
   const dialog=document.querySelector<HTMLDialogElement>('#add-dialog')!;
   dialog.innerHTML=`<form id="add-form"><div class="dialog-heading"><div><h2 id="add-title">${e(t(multiple?'multiple':'newDownload'))}</h2><p>${e(t('directHint'))}</p></div><button type="button" data-action="close-add" class="icon-button" aria-label="${e(t('close'))}">${icon('close')}</button></div><label class="field"><span>${e(t('url'))}</span><textarea name="urls" rows="${multiple?6:3}" placeholder="https://example.com/file.zip" dir="ltr" required autofocus></textarea></label><label class="field"><span>${e(t('folder'))}</span><div class="joined"><input name="directory" value="${e(state.settings.directory)}" dir="ltr" ${native?'required':''}>${button('browse-add','browse','folder',!native?'disabled':'')}</div></label>${field('name','optionalName','text','')}${field('sha256','hash','text','','pattern="[a-fA-F0-9]{64}" dir="ltr"')}<p id="add-error" class="form-error" role="alert"></p><div class="dialog-footer">${button('close-add','cancel')}<button type="submit" name="mode" value="queue">${e(t('addQueue'))}</button><button type="submit" name="mode" value="now" class="primary">${e(t('downloadNow'))}</button></div></form>`;
   dialog.showModal();
-  dialog.querySelector('form')!.addEventListener('submit',async event=>{
+  const form=dialog.querySelector<HTMLFormElement>('form')!;
+  const source=form.querySelector<HTMLTextAreaElement>('[name="urls"]')!;
+  const destination=form.querySelector<HTMLInputElement>('[name="directory"]')!;
+  const meta=document.createElement('section');
+  meta.className='add-preview';meta.hidden=true;meta.setAttribute('aria-live','polite');
+  source.closest('label')!.after(meta);
+  const preference=document.createElement('label');
+  preference.className='delete-checkbox';
+  preference.innerHTML=`<input type="checkbox" name="skip" ${state.settings.confirmless_add?'checked':''}>${e(t('confirmLess'))}`;
+  form.querySelector('.dialog-footer')!.before(preference);
+  if(initial.length)source.value=initial.join('\n');
+  if(multiple){form.querySelector('[name="name"]')?.closest('label')?.remove();form.querySelector('[name="sha256"]')?.closest('label')?.remove();}
+  let manualFolder=false;
+  destination.addEventListener('input',()=>{manualFolder=true;});
+  let timer:ReturnType<typeof setTimeout>;
+  let last='';
+  let inspection:Promise<void>|undefined;
+  function inspect() {
+    const value=source.value;
+    if(last===value&&inspection)return inspection;
+    last=value;
+    const urls=parseLinks(value);
+    meta.hidden=!native||!validUrls(urls);
+    if(meta.hidden){inspection=undefined;return;}
+    meta.textContent=t('checkingFile');
+    inspection=Promise.all(urls.slice(0,6).map(url=>invoke<Preview>('preview_download',{url}).catch(()=>null))).then(results=>{
+      if(last!==value||!dialog.open)return;
+      if(!manualFolder)destination.value=urls.length===1&&results[0]?.directory?results[0].directory:state.settings.directory;
+      meta.innerHTML=`<h3>${e(t('previewFile'))}</h3>${results.map((file,i)=>{
+        if(!file)return `<small>${e(t('sourcePreviewFailed'))} <bdi>#${i+1}</bdi></small>`;
+        const index=file.name.lastIndexOf('.');
+        return `<article><strong dir="auto">${e(file.name)}</strong><small>${e(t('exactSize'))}: <bdi>${file.total===null?e(t('unknown')):`${bytes(file.total)} · ${new Intl.NumberFormat(document.documentElement.lang).format(file.total)} B`}</bdi> · ${e(t('extensionType'))}: <bdi>${index>0?e(file.name.slice(index)):e(t('unknown'))}</bdi> · ${e(t('resumable'))}: ${e(t(file.resumable===null?'unknown':file.resumable?'yes':'no'))}</small></article>`;
+      }).join('')}${urls.length>6?`<small>+${urls.length-6}</small>`:''}`;
+    });
+    return inspection;
+  }
+  source.addEventListener('input',()=>{
+    clearTimeout(timer);
+    last='';inspection=undefined;
+    if(!validUrls(parseLinks(source.value)))meta.hidden=true;
+    timer=setTimeout(()=>void inspect(),360);
+  });
+  source.addEventListener('paste',event=>{
+    if(!native||!state.settings.confirmless_add||!preference.querySelector('input')?.checked||source.value.trim())return;
+    const input=event.clipboardData?.getData('text/plain').trim()??'';
+    const urls=parseLinks(input);
+    if(validUrls(urls)&&(multiple||urls.length===1)){
+      event.preventDefault();
+      source.value=input;
+      form.requestSubmit(form.querySelector<HTMLButtonElement>('button[value="now"]')!);
+    }
+  });
+  source.addEventListener('keydown',event=>{
+    if(event.key==='Enter'&&!multiple&&!event.shiftKey&&!event.isComposing){
+      event.preventDefault();
+      form.requestSubmit(form.querySelector<HTMLButtonElement>('button[value="now"]')!);
+    }
+  });
+  dialog.addEventListener('close',()=>clearTimeout(timer),{once:true});
+  form.addEventListener('submit',async event=>{
     event.preventDefault();if(pending)return;
-    const form=event.currentTarget as HTMLFormElement;
-    const data=new FormData(form);const urls=parseLinks(String(data.get('urls')));
-    const invalid=urls.length<1||urls.length>100||urls.some((input:string)=>{try{const url=new URL(input);return !['http:','https:'].includes(url.protocol)||!!url.username||!!url.password;}catch{return true;}});
-    if(invalid){dialog.querySelector('#add-error')!.textContent=state.settings.language==='fa'?'بین ۱ تا ۱۰۰ لینک معتبر HTTP یا HTTPS وارد کنید.':'Enter between 1 and 100 valid HTTP or HTTPS URLs.';return;}
+    if(!validUrls(parseLinks(source.value))){dialog.querySelector('#add-error')!.textContent=t('invalidLinks');return;}
     if(!native){dialog.querySelector('#add-error')!.textContent=t('webPreview');return;}
+    const start=(event as SubmitEvent).submitter?.getAttribute('value')!=='queue';
     pending=true;form.querySelectorAll<HTMLButtonElement>('button[type="submit"]').forEach(b=>b.disabled=true);
-    const success=await execute({type:'add',urls,directory:String(data.get('directory'))||null,name:String(data.get('name'))||null,sha256:String(data.get('sha256'))||null,start:(event as SubmitEvent).submitter?.getAttribute('value')==='now'});
+    source.readOnly=true;
+    await inspect();
+    const data=new FormData(form);
+    const urls=parseLinks(source.value);
+    const success=dialog.open&&await execute({type:'add',urls,directory:String(data.get('directory'))||null,name:data.get('name')||null,sha256:data.get('sha256')||null,start});
+    if(success&&data.has('skip')!==!!state.settings.confirmless_add)await execute({type:'confirm_preference',skip:data.has('skip')});
+    source.readOnly=false;
     pending=false;form.querySelectorAll<HTMLButtonElement>('button[type="submit"]').forEach(b=>b.disabled=false);
     if(success)dialog.close();
   });
+  if(initial.length)void inspect();
 }
 
 function confirmAction(message:Key, callback:(deleteFiles:boolean)=>Promise<void>, allowDelete=false) {
@@ -295,7 +368,7 @@ async function saveSettings() {
   for(const key of ['language','theme','directory'] as const)s[key]=String(data.get(key));
   for(const key of ['concurrent_downloads','connections_per_file','global_connections','host_connections'] as const)s[key]=Number(data.get(key));
   s.speed_limit=Number(data.get('speed_limit'))*1024;
-  for(const key of ['compact','resume_on_launch','stop_on_error','schedule_enabled','close_to_tray'] as const)s[key]=data.has(key);
+  for(const key of ['compact','resume_on_launch','stop_on_error','schedule_enabled','close_to_tray','confirmless_add'] as const)s[key]=data.has(key);
   for(const key of ['schedule_start','schedule_end'] as const){const [h,m]=String(data.get(key)).split(':').map(Number);s[key]=h*60+m;}
   if(native){if(!await execute({type:'settings',settings:s}))return;}else{state.settings=s;}
   shell();toast(t('saved'));
@@ -317,7 +390,8 @@ document.addEventListener('click',async event=>{
   if(!action){const row=target.closest<HTMLElement>('tr[data-id]');if(row){detailId=row.dataset.id!;detailOpen=true;updateList();updateDetails();}return;}
   if(menu)menu.hidden=true;
   try {
-    if(action==='add'||action==='multiple')showAdd(action==='multiple');
+    if(action.startsWith('feature-'))await features.handle(action,target.closest<HTMLElement>('[data-action]')!);
+    else if(action==='add'||action==='multiple')showAdd(action==='multiple');
     else if(action==='extension-guide')await invoke('extension_guide');
     else if(action==='check-browser')await checkBrowser(true);
     else if(action==='close-add')document.querySelector<HTMLDialogElement>('#add-dialog')!.close();
@@ -333,9 +407,14 @@ document.addEventListener('click',async event=>{
     else if(action.startsWith('item-')&&detailId)await itemAction(action.slice(5),detailId);
     else if(action==='save-settings')await saveSettings();
     else if(action==='browse-add'||action==='browse-settings'){
-      const directory=await open({directory:true,multiple:false});if(typeof directory==='string')document.querySelector<HTMLInputElement>(action==='browse-add'?'#add-form [name="directory"]':'#settings-form [name="directory"]')!.value=directory;
+      const directory=await open({directory:true,multiple:false});if(typeof directory==='string'){const input=document.querySelector<HTMLInputElement>(action==='browse-add'?'#add-form [name="directory"]':'#settings-form [name="directory"]');if(input){input.value=directory;input.dispatchEvent(new Event('input'));}}
     }
-    else if(action==='import'){if(!native){toast(t('webPreview'));return;}state=await invoke<Snapshot>('import_links');refresh();}
+    else if(action==='import'){
+      if(!native){toast(t('webPreview'));return;}
+      const urls=await invoke<string[]>('import_links');
+      if(state.settings.confirmless_add&&validUrls(urls))await execute({type:'add',urls,directory:null,name:null,sha256:null,start:true});
+      else showAdd(urls.length>1,urls);
+    }
     else if(action==='export')confirmAction('exportConfirm',async()=>{await invoke('export_links');});
   }catch(error){toast(String(error));}
 });
@@ -379,6 +458,7 @@ if(native){
     });
     await listen<string>('ndm://error',event=>toast(event.payload));
     state=await invoke<Snapshot>('snapshot');shell();
+    await features.start();
     await checkBrowser();
     setInterval(()=>{void checkBrowser();},2000);
   }catch(error){toast(`${t('backendError')} ${String(error)}`);}

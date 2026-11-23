@@ -24,6 +24,15 @@ const en = {
   webPreview:'Interface preview · downloads require the desktop app', backendError:'The desktop connection is unavailable.', queue:'Queue', allSelected:'Select all downloads', actions:'Download actions',
   privacy:'No telemetry. Your queue stays on this device.', extension:'Browser extension', extensionHint:'Chrome & Edge · explicit link sharing', view:'View', density:'Density',
   notComplete:'Complete this download first.', menu:'Navigation', confirm:'Confirm', count:'downloads', profile:'Speed profile', unlimited:'Unlimited', work:'Work · 1 MiB/s', gaming:'Gaming · 256 KiB/s',
+  previewFile:'File information', checkingFile:'Checking file information…', exactSize:'Size', extensionType:'Extension',
+  confirmLess:'Start future links without a second confirmation', invalidLinks:'Enter between 1 and 100 valid HTTP or HTTPS URLs.',
+  sourcePreviewFailed:'Could not check this link. Review it before starting.', addAnother:'Edit links',
+  phone:'Your phone', phoneHint:'Pair Android on the same Wi-Fi or local network. The connection is encrypted.', phoneEnable:'Enable phone connection', phoneDisable:'Disable connection',
+  pairPhone:'Show pairing QR', pairHelp:'Scan this one-time code in NDM on Android. It expires in 2 minutes.', pairExpired:'QR code expired. Generate another code.', revoke:'Forget device', online:'Online', offline:'Offline',
+  sendFiles:'Send files', noPaired:'No devices paired yet.', filesShared:'File share', transferHint:'Received files are saved under NDM Shared in your Downloads destination.', noTransfers:'No local transfers yet.', incoming:'From phone', outgoing:'To phone', waitingPhone:'Waiting for phone', retry:'Retry', clear:'Clear', receivedFile:'File received', sentFile:'File sent',
+  usage:'Download usage', usageHint:'Completed internet downloads only. Local file sharing is counted separately.', usageTotal:'Total downloaded', usagePc:'PC', usagePhone:'Mobile', last24:'Last 24 hours', last7:'Last 7 days', last30:'Last 30 days', allTypes:'All file types',
+  video:'Video', audio:'Audio', images:'Images', apps:'Apps', games:'Games', archives:'Archives', documents:'Documents', other:'Other', noUsage:'No completed downloads in this period.',
+  updateLabel:'NDM update available', update:'Update', later:'Later', whatsNew:"What's New", applyingUpdate:'Opening the Windows installer…', getUpdate:'Open Releases', updatePortable:'Download the new portable archive from Releases.', checkUpdates:'Check for updates', checkUpdatesNone:'You’re on the latest available version.', checkUpdatesError:'Could not check for updates.',
 } as const;
 type Key = keyof typeof en;
 const fa: Record<Key,string> = {
@@ -52,6 +61,15 @@ const fa: Record<Key,string> = {
   webPreview:'پیش‌نمایش رابط · دانلود به برنامهٔ دسکتاپ نیاز دارد', backendError:'ارتباط با برنامهٔ دسکتاپ در دسترس نیست.', queue:'صف', allSelected:'انتخاب همهٔ دانلودها', actions:'عملیات دانلود',
   privacy:'بدون تله‌متری. صف روی همین دستگاه می‌ماند.', extension:'افزونهٔ مرورگر', extensionHint:'Chrome و Edge · ارسال لینک با اقدام شما', view:'نمایش', density:'تراکم',
   notComplete:'ابتدا دانلود را تکمیل کنید.', menu:'منوی پیمایش', confirm:'تأیید', count:'دانلود', profile:'پروفایل سرعت', unlimited:'نامحدود', work:'کار · ۱ MiB/s', gaming:'بازی · ۲۵۶ KiB/s',
+  previewFile:'اطلاعات فایل', checkingFile:'در حال بررسی اطلاعات فایل…', exactSize:'حجم', extensionType:'پسوند',
+  confirmLess:'لینک‌های بعدی بدون تأیید دوباره شروع شوند', invalidLinks:'بین ۱ تا ۱۰۰ لینک معتبر HTTP یا HTTPS وارد کنید.',
+  sourcePreviewFailed:'بررسی این لینک ممکن نبود. پیش از شروع، لینک را بررسی کنید.', addAnother:'ویرایش لینک‌ها',
+  phone:'گوشی شما', phoneHint:'گوشی اندروید را در همان شبکهٔ محلی یا وای‌فای وصل کنید. اتصال رمزنگاری می‌شود.', phoneEnable:'فعال‌کردن اتصال گوشی', phoneDisable:'غیرفعال‌کردن اتصال',
+  pairPhone:'نمایش QR اتصال', pairHelp:'کد یک‌بارمصرف را در NDM اندروید اسکن کنید. کد تا ۲ دقیقه معتبر است.', pairExpired:'اعتبار کد تمام شد. کد دیگری بسازید.', revoke:'لغو دسترسی', online:'متصل', offline:'قطع',
+  sendFiles:'ارسال فایل‌ها', noPaired:'هنوز دستگاهی متصل نشده است.', filesShared:'اشتراک فایل', transferHint:'فایل‌های دریافتی در پوشهٔ NDM Shared داخل مسیر دانلود ذخیره می‌شوند.', noTransfers:'هنوز انتقال محلی ندارید.', incoming:'از گوشی', outgoing:'به گوشی', waitingPhone:'در انتظار گوشی', retry:'تلاش دوباره', clear:'پاک‌کردن', receivedFile:'فایل دریافت شد', sentFile:'فایل ارسال شد',
+  usage:'حجم دانلود', usageHint:'فقط دانلودهای اینترنتی تکمیل‌شده. اشتراک فایل محلی جداست.', usageTotal:'حجم کل دانلود', usagePc:'کامپیوتر', usagePhone:'گوشی', last24:'۲۴ ساعت اخیر', last7:'۷ روز اخیر', last30:'۳۰ روز اخیر', allTypes:'همهٔ فایل‌ها',
+  video:'ویدیو', audio:'صدا', images:'تصویر', apps:'برنامه', games:'بازی', archives:'آرشیو', documents:'اسناد', other:'سایر', noUsage:'در این بازه دانلود تکمیل‌شده‌ای ثبت نشده است.',
+  updateLabel:'آپدیت NDM آماده است', update:'به‌روزرسانی', later:'بعداً', whatsNew:'تغییرات نسخه', applyingUpdate:'در حال بازکردن نصب‌کنندهٔ ویندوز…', getUpdate:'بازکردن Releases', updatePortable:'نسخهٔ پرتابل جدید را از Releases بگیرید.', checkUpdates:'بررسی آپدیت', checkUpdatesNone:'آخرین نسخهٔ موجود را دارید.', checkUpdatesError:'بررسی آپدیت ممکن نبود.',
 };
 export const messages = { en, fa };
 export function translator(language: string) { return (key: Key): string => (language === 'fa' ? fa : en)[key]; }

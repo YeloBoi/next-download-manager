@@ -159,23 +159,34 @@ impl Settings {
 }
 
 pub fn file_category(name: &str) -> &'static str {
-    match name.rsplit_once('.').map(|(_, ext)| ext.to_ascii_lowercase()).as_deref() {
+    match name
+        .rsplit_once('.')
+        .map(|(_, ext)| ext.to_ascii_lowercase())
+        .as_deref()
+    {
         Some("mp4" | "mkv" | "webm" | "avi" | "mov" | "m4v") => "video",
         Some("mp3" | "wav" | "ogg" | "m4a" | "flac" | "aac") => "audio",
         Some("jpg" | "jpeg" | "png" | "gif" | "webp" | "heic" | "svg") => "images",
         Some("apk" | "exe" | "msi" | "msix" | "dmg" | "deb" | "rpm" | "appimage") => "apps",
         Some("iso" | "rom" | "xci" | "nsp" | "gba" | "nds") => "games",
         Some("zip" | "rar" | "7z" | "tar" | "gz" | "xz") => "archives",
-        Some("pdf" | "doc" | "docx" | "txt" | "xls" | "xlsx" | "ppt" | "pptx" | "epub") => "documents",
+        Some("pdf" | "doc" | "docx" | "txt" | "xls" | "xlsx" | "ppt" | "pptx" | "epub") => {
+            "documents"
+        }
         _ => "other",
     }
 }
 
 pub fn suggested_directory(root: &std::path::Path, name: &str) -> PathBuf {
     let folder = match file_category(name) {
-        "video" => "Videos", "audio" => "Music", "images" => "Images",
-        "apps" => "Programs", "games" => "Games", "archives" => "Archives",
-        "documents" => "Documents", _ => return root.to_path_buf(),
+        "video" => "Videos",
+        "audio" => "Music",
+        "images" => "Images",
+        "apps" => "Programs",
+        "games" => "Games",
+        "archives" => "Archives",
+        "documents" => "Documents",
+        _ => return root.to_path_buf(),
     };
     root.join(folder)
 }

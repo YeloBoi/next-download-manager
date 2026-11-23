@@ -62,6 +62,7 @@ pub enum Action {
     Settings {
         settings: Settings,
     },
+    ConfirmPreference { skip: bool },
     Shutdown,
 }
 
@@ -274,6 +275,7 @@ impl Actor {
     }
     async fn apply(&mut self, action: Action) -> Result<(), String> {
         match action {
+            Action::ConfirmPreference { skip } => self.snapshot.settings.confirmless_add = skip,
             Action::BrowserAdd { urls, start } => {
                 if urls.is_empty() || urls.len() > 100 {
                     return Err("Add between 1 and 100 URLs at a time.".into());

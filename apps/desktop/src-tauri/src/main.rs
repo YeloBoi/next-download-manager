@@ -102,8 +102,7 @@ async fn open_download(
 #[tauri::command]
 async fn import_links(
     app: tauri::AppHandle,
-    manager: State<'_, Manager>,
-) -> Result<Snapshot, String> {
+) -> Result<Vec<String>, String> {
     use tauri_plugin_dialog::DialogExt;
     let path = app
         .dialog()
@@ -122,22 +121,13 @@ async fn import_links(
     let text = tokio::fs::read_to_string(path)
         .await
         .map_err(|e| e.to_string())?;
-    let urls = text
+    Ok(text
         .lines()
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .map(str::to_string)
-        .collect();
-    manager
-        .execute(Action::Add {
-            urls,
-            directory: None,
-            name: None,
-            start: false,
-            sha256: None,
-        })
-        .await
-        .map(public_snapshot)
+        .take(101)
+        .collect())
 }
 
 #[tauri::command]

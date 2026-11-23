@@ -130,23 +130,33 @@ impl Engine {
         if source.len() > 16384 {
             return Err(Error::Invalid("The URL exceeds the length limit.".into()));
         }
-        let response = self.client.head(url.clone())
+        let response = self
+            .client
+            .head(url.clone())
             .header(header::ACCEPT_ENCODING, "identity")
-            .timeout(Duration::from_secs(5)).send().await;
+            .timeout(Duration::from_secs(5))
+            .send()
+            .await;
         let mut preview = DownloadPreview {
             name: filename(&header::HeaderMap::new(), &url),
-            total: None, resumable: None, directory: root.to_path_buf(),
+            total: None,
+            resumable: None,
+            directory: root.to_path_buf(),
         };
         if let Ok(response) = response {
             if response.status().is_success() {
                 check_html(&response)?;
                 preview.name = filename(response.headers(), response.url());
                 let header_value = |key| response.headers().get(key).and_then(|v| v.to_str().ok());
-                if header_value(header::CONTENT_ENCODING).is_none_or(|v| v.eq_ignore_ascii_case("identity")) {
-                    preview.total = header_value(header::CONTENT_LENGTH).and_then(|v| v.parse().ok());
+                if header_value(header::CONTENT_ENCODING)
+                    .is_none_or(|v| v.eq_ignore_ascii_case("identity"))
+                {
+                    preview.total =
+                        header_value(header::CONTENT_LENGTH).and_then(|v| v.parse().ok());
                     preview.resumable = header_value(header::ACCEPT_RANGES).map(|v| {
-                        v.eq_ignore_ascii_case("bytes") && (header_value(header::ETAG)
-                            .is_some_and(|tag| tag.starts_with('"')) || header_value(header::LAST_MODIFIED).is_some())
+                        v.eq_ignore_ascii_case("bytes")
+                            && (header_value(header::ETAG).is_some_and(|tag| tag.starts_with('"'))
+                                || header_value(header::LAST_MODIFIED).is_some())
                     });
                 }
             }

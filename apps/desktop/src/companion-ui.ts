@@ -22,6 +22,7 @@ export function companionUI(native: boolean, t: Translate, toast: (message: stri
   let view: View | null = null;
   let chart: Usage[] = [];
   let qr: QR | null = null;
+  let qrExpired = false;
   let period = 24;
   let category = '';
   let next: Update | null = null;
@@ -80,10 +81,10 @@ export function companionUI(native: boolean, t: Translate, toast: (message: stri
   function paintSettings() {
     const phone=document.querySelector('#phone-panel');
     if (!phone) return;
-    if (qr&&Date.now()>=qr.expires*1000) qr=null;
+    if (qr&&Date.now()>=qr.expires*1000) { qr=null; qrExpired=true; }
     const devices=view?.devices||[];
     const markup=`<div class="feature-actions">${buttons(view?.enabled?'phoneDisable':'phoneEnable','feature-enable-phone',t,(!native||!view)?'disabled':'')}${view?.enabled?buttons('pairPhone','feature-pair-phone',t):''}</div>
-      ${qr?`<figure class="pair-qr"><svg viewBox="0 0 ${qr.size} ${qr.size}" aria-label="${e(t('pairPhone'))}" role="img"><path d="${e(qr.path)}"></path></svg><figcaption>${e(t('pairHelp'))}<br><span dir="ltr">${e(qr.host)}</span></figcaption></figure>`:''}
+      ${qr?`<figure class="pair-qr"><svg viewBox="0 0 ${qr.size} ${qr.size}" aria-label="${e(t('pairPhone'))}" role="img"><path d="${e(qr.path)}"></path></svg><figcaption>${e(t('pairHelp'))}<br><span dir="ltr">${e(qr.host)}</span></figcaption></figure>`:qrExpired?`<p class="feature-muted">${e(t('pairExpired'))}</p>`:''}
       ${devices.length?devices.map(d=>`<article class="feature-row"><div><strong>${e(d.name)}</strong><small class="${d.online?'feature-online':''}">${e(t(d.online?'online':'offline'))}</small></div><div class="feature-actions">${buttons('sendFiles','feature-send',t,`data-id="${e(d.id)}" ${view?.enabled?'':'disabled'}`)}${buttons('revoke','feature-revoke',t,`data-id="${e(d.id)}"`)}</div></article>`).join(''):`<p class="feature-muted">${e(t('noPaired'))}</p>`}`;
     if(markup!==phoneMarkup) {phoneMarkup=markup;phone.innerHTML=markup;}
     const panel=document.querySelector('#transfer-panel');
@@ -131,7 +132,7 @@ export function companionUI(native: boolean, t: Translate, toast: (message: stri
     const hidden=!!next&&snooze.version===next.version&&Date.now()<snooze.until;
     if(mark) mark.hidden=!hidden;
     banner.hidden=!next||hidden;
-    if(!next||hidden){banner.innerHTML='';return;}
+    if(!next||hidden){banner.innerHTML='';delete banner.dataset.markup;return;}
     const prefix=`<div><strong>${e(t('updateLabel'))}</strong> <span dir="ltr">v${e(next.version)}</span>`;
     const [received,total]=updateProgress;
     const markup=installing?`${prefix}<small>${total&&received>=total?e(t('applyingUpdate')):`${bytes(received)} / ${total?bytes(total):'…'}`}</small></div><progress max="${total||1}" ${total?`value="${received}"`:''} aria-label="${e(t('update'))}"></progress>`:
@@ -157,8 +158,10 @@ export function companionUI(native: boolean, t: Translate, toast: (message: stri
     if(action==='feature-enable-phone') {
       await invoke('companion_enable',{enabled:!view?.enabled});
       qr=null;
+      qrExpired=false;
     } else if(action==='feature-pair-phone') {
       qr=await invoke<QR>('companion_pair');
+      qrExpired=false;
     } else if(action==='feature-revoke') {
       await invoke('companion_revoke',{id});
     } else if(action==='feature-send') {

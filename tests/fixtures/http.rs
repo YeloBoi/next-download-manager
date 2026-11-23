@@ -153,6 +153,9 @@ async fn serve(
     if ranged {
         builder = builder.header(header::CONTENT_RANGE, format!("bytes {start}-{end}/{size}"));
     }
+    if mode == "range" {
+        builder = builder.header(header::ACCEPT_RANGES, "bytes");
+    }
     if mode != "unknown" {
         builder = builder.header(header::CONTENT_LENGTH, end - start + 1);
     }

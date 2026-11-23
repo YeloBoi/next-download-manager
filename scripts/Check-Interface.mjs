@@ -107,6 +107,8 @@ try {
   await desktop.locator('.usage-summary strong').filter({hasText:'3.0 KiB'}).waitFor();
   await desktop.locator('#usage-category').selectOption('images');
   await desktop.locator('.usage-summary strong').filter({hasText:'2.0 KiB'}).waitFor();
+  await desktop.getByRole('button',{name:'Check for updates',exact:true}).click();
+  await desktop.locator('#update-banner').getByRole('button',{name:'Update',exact:true}).waitFor();
   await desktop.locator('#browser-connection').waitFor({state:'hidden'});
   await desktop.evaluate(()=>{window.ndmTestConnection={seen:true,connected:false};});
   await desktop.locator('#browser-connection').waitFor({state:'visible'});

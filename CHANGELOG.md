@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-alpha.8
+
+- Preview direct links with HEAD; suggest a destination and give confirmed downloads priority over the regular queue.
+- Check for Windows updates through GitHub Releases, with release notes, a 24-hour reminder, download progress and SHA-256 verification.
+- Add NDM for Android with local downloads, APK review, QR pairing with Windows, remote controls and completion notifications.
+- Share multiple files in either direction on the local network and resume interrupted transfers.
+- Compare completed internet traffic from Windows and Android by date and file type without counting local file shares.
+
 ## 0.1.0-alpha.3
 
 - Persist ordered multi-tab extension selections, with badges, move/remove, retained failed sends and serialized storage mutations.

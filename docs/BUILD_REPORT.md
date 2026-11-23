@@ -1,5 +1,15 @@
 # Hosted Windows build evidence
 
+## 0.1.0-alpha.8 Windows and Android companion
+
+- Source/tag: `2c1393136c9c5368856fc235e52a6a4bf2835322` / `v0.1.0-alpha.8`.
+- Successful CI: https://github.com/YeloBoi/next-download-manager/actions/runs/45188952060
+- Successful tagged checks, build and publication: https://github.com/YeloBoi/next-download-manager/actions/runs/45188960272
+- Hosted Edge checked the Add preview, destination, explicit Start, update notes, snoozing, QR display and category filters in addition to the existing English/Persian checks.
+- Hosted Windows checked manual start outside the automatic schedule, statistics persistence, encrypted pairing, one-use QR credentials, revocation and resuming file chunks in both directions. The packaged app again downloaded real fixture files through Chrome, Edge and Firefox.
+- Android API 35 emulator opened the app and the APK review dialog, extracted APK metadata, paired using the certificate fingerprint, rejected a wrong fingerprint and restored credentials from Android Keystore. APK signature verification passed. Physical phone installation and a Windows upgrade between two published versions were not exercised.
+- GitHub marked alpha.8 Latest with 9 assets after checking SHA-256. The signed Android APK is 1,980,728 bytes and the Windows setup is 7,190,965 bytes.
+
 ## 0.1.0-alpha.7 automatic browser registration and real browser downloads
 
 - CI: https://github.com/YeloBoi/next-download-manager/actions/runs/45174575936

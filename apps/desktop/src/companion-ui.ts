@@ -7,7 +7,7 @@ import type { Key } from './i18n';
 type Translate = (key: Key) => string;
 type Device = { id: string; name: string; online: boolean; remember: boolean };
 type Transfer = { id: string; device: string; name: string; to_pc: boolean; bytes: number; total: number; speed: number; phase: 'ready'|'paused'|'complete'|'failed'; error: string|null };
-type View = { enabled: boolean; devices: Device[]; transfers: Transfer[] };
+type View = { enabled: boolean; pairing: boolean; devices: Device[]; transfers: Transfer[] };
 type Usage = { device: 'pc'|'mobile'; hour: number; bytes: number; category: string };
 type Update = { version: string; notes: string; installable: boolean; portable: boolean };
 type QR = { path: string; size: number; expires: number; host: string };
@@ -115,7 +115,7 @@ export function companionUI(native: boolean, t: Translate, toast: (message: stri
         const completed=view.transfers.find(x=>x.phase==='complete'&&!finished.has(x.id));
         if(completed)toast(`${t(completed.to_pc?'receivedFile':'sentFile')}: ${completed.name}`);
       }
-      if(qr&&view.devices.some(d=>!previous?.devices.some(p=>p.id===d.id&&p.online)&&d.online))qr=null;
+      if(qr&&!view.pairing)qr=null;
       previous=view;
       if(Date.now()-lastChart>12000&&document.querySelector('#usage-chart')) {
         chart=await invoke<Usage[]>('download_usage');

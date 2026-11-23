@@ -31,7 +31,10 @@ final class ApkInstall {
         params.setAppPackageName(details.packageName());params.setSize(details.size());
         if(Build.VERSION.SDK_INT>=31)params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED);
         int id=installer.createSession(params);
-        context.getSharedPreferences("installer",Context.MODE_PRIVATE).edit().putString("package_"+id,details.packageName()).commit();
+        if(!context.getSharedPreferences("installer",Context.MODE_PRIVATE).edit().putString("package_"+id,details.packageName()).commit()){
+            installer.abandonSession(id);
+            throw new IOException("Could not save the installation session.");
+        }
         try(PackageInstaller.Session session=installer.openSession(id)){
             try(InputStream source=new FileInputStream(details.file());OutputStream output=session.openWrite("base.apk",0,details.size())){
                 byte[] buffer=new byte[65536];long sent=0;int n;int previous=-1;

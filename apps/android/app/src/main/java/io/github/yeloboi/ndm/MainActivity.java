@@ -175,7 +175,8 @@ public final class MainActivity extends Activity {
     private void pc(){
         header("Your PC","Control downloads over your local network.");
         LinearLayout p=panel();p.addView(strong(client.online?"Connected":client.pc!=null?"Reconnecting":"Pair a PC",16));gap(p,5);
-        p.addView(text(client.pc!=null?(client.online?client.pc.host:client.issue):"In NDM for Windows, open Settings → Your phone, then show the QR code.",13,sub));
+        p.addView(text(client.pc!=null?(client.online?client.pc.host:client.issue.isEmpty()?"Connecting to "+client.pc.host:client.issue):
+            client.issue.isEmpty()?"In NDM for Windows, open Settings → Your phone, then show the QR code.":client.issue,13,sub));
         if(client.pc==null)actions(p,button("Scan QR code",true,this::scan));
         else {
             actions(p,button("Add to PC",true,()->addLink(true)),button("Forget PC",false,()->ask("Forget this PC?","You can pair it again from Windows Settings.","Forget",()->run(()->{client.disconnect();main.post(()->stopService(new Intent(this,CompanionService.class)));}))));

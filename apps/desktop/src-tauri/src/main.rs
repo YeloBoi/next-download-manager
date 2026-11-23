@@ -151,6 +151,17 @@ async fn export_links(app: tauri::AppHandle, manager: State<'_, Manager>) -> Res
 }
 
 fn main() {
+    if std::env::args_os().any(|arg| arg == "--browser-request") {
+        if let Some(local_data) = dirs::data_local_dir() {
+            let path = local_data.join("NDM").join("browser-startup-error.log");
+            let default_hook = std::panic::take_hook();
+            std::panic::set_hook(Box::new(move |panic| {
+                let trace = std::backtrace::Backtrace::force_capture();
+                let _ = std::fs::write(&path, format!("{panic}\n{trace}"));
+                default_hook(panic);
+            }));
+        }
+    }
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             if let Some(window) = app.get_webview_window("main") {

@@ -26,6 +26,7 @@ FIREFOX_ID = 'ndm@yeloboi.github.io'
 ARTIFACTS = Path('.artifacts').resolve()
 DATA = bytes(range(251)) * 512
 DOWNLOADS = Path(os.environ['USERPROFILE']) / 'Downloads'
+STARTUP_LOG = Path(os.environ['LOCALAPPDATA']) / 'NDM' / 'browser-startup-error.log'
 RECEIVED = set()
 
 
@@ -137,6 +138,7 @@ def assert_registered(install):
 
 
 def check(name, chromium, firefox, base, log):
+    STARTUP_LOG.unlink(missing_ok=True)
     driver, popup = browser_session(name, chromium, firefox, log)
     try:
         print(f'{name} {driver.capabilities["browserVersion"]}: loaded release extension', flush=True)
@@ -154,6 +156,8 @@ def check(name, chromium, firefox, base, log):
         except AssertionError as error:
             print(f'{name} popup error: {error}; HTTP request observed: {f"/{cold}" in RECEIVED}', flush=True)
             print_native_processes()
+            if STARTUP_LOG.is_file():
+                print(STARTUP_LOG.read_text(encoding='utf-8', errors='replace'), flush=True)
             try:
                 print(f'{name} direct download probe: {native_probe(driver, "add", f"{base}/{cold}")}', flush=True)
             except Exception as probe_error:

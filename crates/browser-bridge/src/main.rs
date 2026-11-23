@@ -52,6 +52,24 @@ fn reply(response: &Response) -> Result<(), String> {
     )
 }
 
+#[cfg(windows)]
+fn relaunch_from_explorer() -> Result<(), String> {
+    let desktop = std::env::current_exe()
+        .map_err(|e| e.to_string())?
+        .with_file_name("ndm.exe");
+    let windows = std::env::var_os("SystemRoot").ok_or("Cannot locate Windows.")?;
+    let explorer = std::path::Path::new(&windows).join("explorer.exe");
+    tokio::process::Command::new(explorer)
+        .arg(desktop)
+        .creation_flags(0x01000000) // CREATE_BREAKAWAY_FROM_JOB
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| format!("Could not open NDM through Windows Explorer: {error}."))
+}
+
 async fn run(args: &[String]) -> Result<(), String> {
     let directory = bridge_directory()?;
     let firefox = firefox_caller(args, &directory);
@@ -152,6 +170,17 @@ async fn forward(
             .and_then(|child| child.try_wait().ok().flatten())
         {
             if !status.success() {
+                #[cfg(windows)]
+                if _firefox && status.code() == Some(101) {
+                    // WebView2 can disconnect during a Firefox-started cold launch.
+                    // Ask the user's desktop shell to open NDM and keep waiting for the queue.
+                    if let Err(error) = relaunch_from_explorer() {
+                        let _ = tokio::fs::remove_file(path.with_extension("request")).await;
+                        return Err(error);
+                    }
+                    desktop = None;
+                    continue;
+                }
                 let _ = tokio::fs::remove_file(path.with_extension("request")).await;
                 return Err(format!("Could not open NDM: {status}."));
             }

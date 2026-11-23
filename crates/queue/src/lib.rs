@@ -133,6 +133,7 @@ impl Manager {
                 engine: engine.clone(),
                 store: store.clone(),
                 active: HashMap::new(),
+                manual_starts: HashSet::new(),
                 command_rx,
                 snapshot_tx,
                 worker_rx,
@@ -191,6 +192,7 @@ struct Actor {
     engine: Engine,
     store: Store,
     active: HashMap<String, Active>,
+    manual_starts: HashSet<String>,
     command_rx: mpsc::Receiver<(Action, Reply)>,
     snapshot_tx: watch::Sender<Snapshot>,
     worker_rx: mpsc::Receiver<WorkerEvent>,
@@ -210,6 +212,7 @@ impl Actor {
                         self.snapshot.running = false; self.cancel_all(Status::Stopped); self.shutdown = Some(reply);
                     } else {
                         let before = self.snapshot.clone();
+                        let manual_before = self.manual_starts.clone();
                         let user_paused = match &action {
                             Action::PauseQueue | Action::StopQueue | Action::Stop { .. }
                             | Action::Pause { continue_queue: false, .. } | Action::Drain => Some(true),
@@ -224,7 +227,7 @@ impl Actor {
                         let result = match result {
                             Ok(()) => match self.store.save(&self.snapshot).await {
                                 Ok(()) => Ok(self.snapshot.clone()),
-                                Err(e) => { self.snapshot = before; self.snapshot.running = false; self.cancel_all(Status::Paused); Err(format!("Could not save the queue: {e}")) }
+                                Err(e) => { self.snapshot = before; self.manual_starts = manual_before; self.snapshot.running = false; self.cancel_all(Status::Paused); Err(format!("Could not save the queue: {e}")) }
                             },
                             Err(e) => Err(e),
                         };
@@ -317,7 +320,7 @@ impl Actor {
                     // Box the shared add action rather than duplicate its validation and creation.
                     Box::pin(self.apply(Action::Add {
                         urls: fresh,
-                        directory: None,
+                        directory: Some(self.snapshot.settings.directory.clone()),
                         name: None,
                         start: false,
                         sha256: None,
@@ -370,9 +373,7 @@ impl Actor {
                 if urls.len() > 1 && (name.is_some() || sha256.is_some()) {
                     return Err("A custom name or hash requires one URL.".into());
                 }
-                let directory =
-                    directory.unwrap_or_else(|| self.snapshot.settings.directory.clone());
-                if !directory.is_absolute() {
+                if directory.as_ref().is_some_and(|path| !path.is_absolute()) {
                     return Err("Choose an absolute destination folder.".into());
                 }
                 let mut seen: HashSet<String> = self
@@ -396,14 +397,23 @@ impl Actor {
                 }
                 let first_new = self.snapshot.downloads.len();
                 for url in validated {
+                    let id = Uuid::new_v4().to_string();
+                    if start {
+                        self.manual_starts.insert(id.clone());
+                    }
+                    let suffix = url.split(['?', '#']).next().unwrap_or(&url)
+                        .rsplit('/').next().unwrap_or_default();
+                    let target = directory.clone().unwrap_or_else(|| {
+                        ndm_core::suggested_directory(&self.snapshot.settings.directory, name.as_deref().unwrap_or(suffix))
+                    });
                     self.snapshot.downloads.push(Download {
-                        id: Uuid::new_v4().to_string(),
+                        id,
                         url,
                         name: name
                             .as_deref()
                             .map(ndm_core::sanitize_filename)
                             .unwrap_or_default(),
-                        directory: directory.clone(),
+                        directory: target,
                         status: Status::Queued,
                         downloaded: 0,
                         total: None,
@@ -421,7 +431,7 @@ impl Actor {
                     // Manual downloads take the next free slot, ahead of queue-only entries.
                     let next = self.snapshot.downloads[..first_new]
                         .iter()
-                        .position(|job| job.status == Status::Queued)
+                        .position(|job| job.status == Status::Queued && !self.manual_starts.contains(&job.id))
                         .unwrap_or(first_new);
                     let added = self.snapshot.downloads.len() - first_new;
                     self.snapshot.downloads[next..].rotate_right(added);
@@ -445,16 +455,19 @@ impl Actor {
                 self.snapshot.draining = false;
             }
             Action::PauseQueue => {
+                self.manual_starts.clear();
                 self.snapshot.running = false;
                 self.snapshot.draining = false;
                 self.cancel_all(Status::Paused);
             }
             Action::StopQueue => {
+                self.manual_starts.clear();
                 self.snapshot.running = false;
                 self.snapshot.draining = false;
                 self.cancel_all(Status::Stopped);
             }
             Action::Drain => {
+                self.manual_starts.clear();
                 self.snapshot.draining = true;
             }
             Action::Pause { id, continue_queue } => {
@@ -462,7 +475,9 @@ impl Actor {
                 if self.snapshot.downloads[index].status == Status::Completed {
                     return Err("A completed file cannot be paused.".into());
                 }
+                self.manual_starts.remove(&id);
                 if !continue_queue {
+                    self.manual_starts.clear();
                     self.snapshot.running = false;
                 }
                 if let Some(active) = self.active.get_mut(&id) {
@@ -483,7 +498,9 @@ impl Actor {
                 if self.snapshot.downloads[index].status == Status::Completed {
                     return Err("A completed file cannot be stopped.".into());
                 }
+                self.manual_starts.remove(&id);
                 if stop_queue {
+                    self.manual_starts.clear();
                     self.snapshot.running = false;
                 }
                 if let Some(active) = self.active.get_mut(&id) {
@@ -616,6 +633,7 @@ impl Actor {
                 .await
                 .map_err(|e| e.to_string())?;
         }
+        self.manual_starts.remove(&job.id);
         self.snapshot.downloads.remove(index);
         Ok(())
     }
@@ -718,14 +736,11 @@ impl Actor {
         let settings = &self.snapshot.settings;
         let now = Local::now();
         let minute = (now.hour() * 60 + now.minute()) as u16;
-        if !self.snapshot.running
-            || self.snapshot.draining
-            || self.shutdown.is_some()
-            || (settings.schedule_enabled
-                && !within_schedule(minute, settings.schedule_start, settings.schedule_end))
-        {
+        if !self.snapshot.running || self.snapshot.draining || self.shutdown.is_some() {
             return;
         }
+        let outside_schedule = settings.schedule_enabled
+            && !within_schedule(minute, settings.schedule_start, settings.schedule_end);
         for job in &mut self.snapshot.downloads {
             if self.active.len() >= settings.concurrent_downloads {
                 break;
@@ -733,6 +748,10 @@ impl Actor {
             if job.status != Status::Queued || self.active.contains_key(&job.id) {
                 continue;
             }
+            if outside_schedule && !self.manual_starts.contains(&job.id) {
+                continue;
+            }
+            self.manual_starts.remove(&job.id);
             let cancel = CancellationToken::new();
             self.active.insert(
                 job.id.clone(),

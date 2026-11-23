@@ -318,7 +318,8 @@ function showAdd(multiple=false, initial:string[] = []) {
     await inspect();
     const data=new FormData(form);
     const urls=parseLinks(source.value);
-    const success=dialog.open&&await execute({type:'add',urls,directory:String(data.get('directory'))||null,name:data.get('name')||null,sha256:data.get('sha256')||null,start});
+    const directory=(manualFolder||urls.length===1)?String(data.get('directory'))||null:null;
+    const success=dialog.open&&await execute({type:'add',urls,directory,name:data.get('name')||null,sha256:data.get('sha256')||null,start});
     if(success&&data.has('skip')!==!!state.settings.confirmless_add)await execute({type:'confirm_preference',skip:data.has('skip')});
     source.readOnly=false;
     pending=false;form.querySelectorAll<HTMLButtonElement>('button[type="submit"]').forEach(b=>b.disabled=false);

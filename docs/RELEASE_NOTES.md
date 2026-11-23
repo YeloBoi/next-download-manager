@@ -1,6 +1,6 @@
 # NDM 0.1.0-alpha.8 — Android companion and file sharing
 
-- Review Add links before starting. NDM checks the name, exact size, extension and safe resume via HEAD when the server provides them, and suggests a folder by file type. Start prioritizes the download for the next free slot.
+- Review Add links before starting. NDM checks the name, exact size, extension and safe resume via HEAD when the server provides them, and suggests a folder by file type. Start takes the next free slot even outside the automatic queue schedule.
 - The installed Windows app checks GitHub Releases for newer versions, shows release notes and download progress, and verifies the installer against GitHub’s asset SHA-256 before installing and restarting. Later snoozes that version for 24 hours. Portable users update by replacing their archive.
 - The signed Android app downloads files locally and shows APK app icon, name, package, version and size ahead of Android’s own installation confirmation.
 - Pair Android and Windows on the same Wi-Fi. In Windows Settings, enable **Your phone** and show its one-use QR code. Android can watch PC downloads, add links, pause, resume, stop, and remove queue entries. Remembered phones rejoin using their saved credential, and access can be revoked on the PC.

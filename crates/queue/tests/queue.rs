@@ -3,6 +3,7 @@
 mod support;
 use ndm_core::{Settings, Snapshot, Status};
 use ndm_queue::{Action, Manager};
+use chrono::{Local, Timelike};
 use std::time::Duration;
 
 async fn wait(manager: &Manager, predicate: impl Fn(&Snapshot) -> bool) -> Snapshot {
@@ -32,7 +33,11 @@ fn add(urls: Vec<String>, start: bool) -> Action {
 async fn manual_start_precedes_the_waiting_queue_and_persists_usage() {
     let server = support::Server::start().await;
     let dir = tempfile::tempdir().expect("dir");
-    let settings = Settings::new(dir.path().join("downloads"));
+    let mut settings = Settings::new(dir.path().join("downloads"));
+    let now = Local::now();
+    settings.schedule_enabled = true;
+    settings.schedule_start = ((now.hour() * 60 + now.minute() + 180) % 1440) as u16;
+    settings.schedule_end = (settings.schedule_start + 1) % 1440;
     let data = dir.path().join("state");
     let manager = Manager::open(data.clone(), settings.clone()).await.unwrap();
     manager
@@ -46,6 +51,7 @@ async fn manual_start_precedes_the_waiting_queue_and_persists_usage() {
         .unwrap();
     assert_eq!(response.downloads[0].url, start);
     let completed = wait(&manager, |s| s.downloads[0].status == Status::Completed).await;
+    assert_eq!(completed.downloads[1].status, Status::Queued);
     manager
         .execute(Action::Remove {
             id: completed.downloads[0].id.clone(),

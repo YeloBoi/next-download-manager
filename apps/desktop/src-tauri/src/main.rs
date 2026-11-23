@@ -5,6 +5,19 @@ use ndm_queue::{Action, Manager};
 use tauri::{Emitter, Manager as TauriManager, State};
 use tauri_plugin_opener::OpenerExt;
 
+mod updates;
+mod companion;
+
+#[tauri::command]
+async fn preview_download(url: String, manager: State<'_, Manager>) -> Result<ndm_core::DownloadPreview, String> {
+    manager.preview(&url).await
+}
+
+#[tauri::command]
+async fn download_usage(manager: State<'_, Manager>) -> Result<Vec<ndm_core::Usage>, String> {
+    manager.usage().await
+}
+
 #[tauri::command]
 fn browser_connection(
     connection: State<'_, ndm_browser_bridge::ConnectionState>,
@@ -179,7 +192,18 @@ fn main() {
             import_links,
             export_links,
             browser_connection,
-            extension_guide
+            extension_guide,
+            preview_download,
+            download_usage,
+            updates::check_update,
+            updates::install_update,
+            updates::open_release,
+            companion::companion_view,
+            companion::companion_enable,
+            companion::companion_pair,
+            companion::companion_revoke,
+            companion::companion_send,
+            companion::companion_transfer
         ])
         .setup(|app| {
             let data = dirs::data_local_dir()
@@ -188,8 +212,12 @@ fn main() {
             let downloads =
                 dirs::download_dir().ok_or("Cannot locate the Windows Downloads folder.")?;
             let manager =
-                tauri::async_runtime::block_on(Manager::open(data, Settings::new(downloads)))
+                tauri::async_runtime::block_on(Manager::open(data.clone(), Settings::new(downloads)))
                     .map_err(std::io::Error::other)?;
+            let companion = tauri::async_runtime::block_on(companion::Companion::open(
+                data.join("companion"), manager.clone()
+            )).map_err(std::io::Error::other)?;
+            app.manage(companion);
             app.manage(manager.clone());
             let handle = app.handle().clone();
             let mut receiver = manager.subscribe();

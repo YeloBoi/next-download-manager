@@ -114,6 +114,8 @@ pub struct Settings {
     pub schedule_start: u16,
     pub schedule_end: u16,
     pub close_to_tray: bool,
+    #[serde(default)]
+    pub confirmless_add: bool,
 }
 
 impl Settings {
@@ -134,6 +136,7 @@ impl Settings {
             schedule_start: 0,
             schedule_end: 0,
             close_to_tray: false,
+            confirmless_add: false,
         }
     }
     pub fn validate(&self) -> Result<()> {
@@ -153,6 +156,37 @@ impl Settings {
         }
         Ok(())
     }
+}
+
+pub fn file_category(name: &str) -> &'static str {
+    match name.rsplit_once('.').map(|(_, ext)| ext.to_ascii_lowercase()).as_deref() {
+        Some("mp4" | "mkv" | "webm" | "avi" | "mov" | "m4v") => "video",
+        Some("mp3" | "wav" | "ogg" | "m4a" | "flac" | "aac") => "audio",
+        Some("jpg" | "jpeg" | "png" | "gif" | "webp" | "heic" | "svg") => "images",
+        Some("apk" | "exe" | "msi" | "msix" | "dmg" | "deb" | "rpm" | "appimage") => "apps",
+        Some("iso" | "rom" | "xci" | "nsp" | "gba" | "nds") => "games",
+        Some("zip" | "rar" | "7z" | "tar" | "gz" | "xz") => "archives",
+        Some("pdf" | "doc" | "docx" | "txt" | "xls" | "xlsx" | "ppt" | "pptx" | "epub") => "documents",
+        _ => "other",
+    }
+}
+
+pub fn suggested_directory(root: &std::path::Path, name: &str) -> PathBuf {
+    let folder = match file_category(name) {
+        "video" => "Videos", "audio" => "Music", "images" => "Images",
+        "apps" => "Programs", "games" => "Games", "archives" => "Archives",
+        "documents" => "Documents", _ => return root.to_path_buf(),
+    };
+    root.join(folder)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Usage {
+    pub hour: i64,
+    pub category: String,
+    pub bytes: u64,
+    pub device: String,
 }
 
 pub fn within_schedule(minute: u16, start: u16, end: u16) -> bool {

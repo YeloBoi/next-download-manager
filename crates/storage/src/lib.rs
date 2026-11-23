@@ -1,4 +1,4 @@
-use ndm_core::Snapshot;
+use ndm_core::{Snapshot, Usage};
 use rusqlite::{params, Connection, OptionalExtension};
 use std::path::PathBuf;
 
@@ -14,7 +14,9 @@ impl Store {
         let store = Self { path };
         store.run(|connection| {
             connection.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;
-                CREATE TABLE IF NOT EXISTS state (id INTEGER PRIMARY KEY CHECK(id = 1), version INTEGER NOT NULL, snapshot TEXT NOT NULL);")?;
+                CREATE TABLE IF NOT EXISTS state (id INTEGER PRIMARY KEY CHECK(id = 1), version INTEGER NOT NULL, snapshot TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS usage (device TEXT NOT NULL, hour INTEGER NOT NULL, category TEXT NOT NULL, bytes INTEGER NOT NULL,
+                  PRIMARY KEY(device, hour, category));")?;
             Ok(())
         }).await?;
         Ok(store)
@@ -62,11 +64,38 @@ impl Store {
     }
 
     pub async fn save(&self, snapshot: &Snapshot) -> Result<()> {
+        self.save_with_usage(snapshot, None).await
+    }
+
+    pub async fn save_with_usage(&self, snapshot: &Snapshot, entry: Option<Usage>) -> Result<()> {
         let json = serde_json::to_string(snapshot).map_err(|e| e.to_string())?;
         self.run(move |connection| {
             let transaction = connection.transaction()?;
             transaction.execute("INSERT INTO state (id,version,snapshot) VALUES(1,1,?1) ON CONFLICT(id) DO UPDATE SET version=1,snapshot=excluded.snapshot", params![json])?;
+            if let Some(entry) = entry {
+                transaction.execute("INSERT INTO usage VALUES('pc',?1,?2,?3) ON CONFLICT(device,hour,category) DO UPDATE SET bytes = usage.bytes + excluded.bytes",
+                    params![entry.hour, entry.category, entry.bytes])?;
+            }
             transaction.commit()
+        }).await
+    }
+
+    pub async fn merge_usage(&self, device: String, entries: Vec<Usage>) -> Result<()> {
+        self.run(move |connection| {
+            let transaction = connection.transaction()?;
+            for entry in entries {
+                transaction.execute("INSERT INTO usage VALUES(?1,?2,?3,?4) ON CONFLICT(device,hour,category) DO UPDATE SET bytes = max(usage.bytes, excluded.bytes)",
+                    params![device, entry.hour, entry.category, entry.bytes])?;
+            }
+            transaction.commit()
+        }).await
+    }
+
+    pub async fn usage_since(&self, hour: i64) -> Result<Vec<Usage>> {
+        self.run(move |connection| {
+            let mut query = connection.prepare("SELECT hour, category, CAST(total(bytes) AS INTEGER), CASE WHEN device='pc' THEN 'pc' ELSE 'mobile' END AS source FROM usage WHERE hour>=?1 GROUP BY hour,category,source ORDER BY hour")?;
+            let rows = query.query_map([hour], |row| Ok(Usage { hour: row.get(0)?, category: row.get(1)?, bytes: row.get(2)?, device: row.get(3)? }))?;
+            rows.collect()
         }).await
     }
 }

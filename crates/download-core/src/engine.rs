@@ -125,6 +125,35 @@ pub struct Engine {
 }
 
 impl Engine {
+    pub async fn preview(&self, source: &str, root: &Path) -> Result<DownloadPreview> {
+        let url = validate_url(source)?;
+        if source.len() > 16384 {
+            return Err(Error::Invalid("The URL exceeds the length limit.".into()));
+        }
+        let response = self.client.head(url.clone())
+            .header(header::ACCEPT_ENCODING, "identity")
+            .timeout(Duration::from_secs(5)).send().await;
+        let mut preview = DownloadPreview {
+            name: filename(&header::HeaderMap::new(), &url),
+            total: None, resumable: None, directory: root.to_path_buf(),
+        };
+        if let Ok(response) = response {
+            if response.status().is_success() {
+                check_html(&response)?;
+                preview.name = filename(response.headers(), response.url());
+                let header_value = |key| response.headers().get(key).and_then(|v| v.to_str().ok());
+                if header_value(header::CONTENT_ENCODING).is_none_or(|v| v.eq_ignore_ascii_case("identity")) {
+                    preview.total = header_value(header::CONTENT_LENGTH).and_then(|v| v.parse().ok());
+                    preview.resumable = header_value(header::ACCEPT_RANGES).map(|v| {
+                        v.eq_ignore_ascii_case("bytes") && (header_value(header::ETAG)
+                            .is_some_and(|tag| tag.starts_with('"')) || header_value(header::LAST_MODIFIED).is_some())
+                    });
+                }
+            }
+        }
+        preview.directory = crate::suggested_directory(root, &preview.name);
+        Ok(preview)
+    }
     pub fn work_root(&self) -> &Path {
         &self.work_root
     }
@@ -688,6 +717,14 @@ impl Engine {
             Err(e) => Err(e.into()),
         }
     }
+}
+
+#[derive(Debug, Serialize)]
+pub struct DownloadPreview {
+    pub name: String,
+    pub total: Option<u64>,
+    pub resumable: Option<bool>,
+    pub directory: PathBuf,
 }
 
 fn network(error: reqwest::Error) -> Error {

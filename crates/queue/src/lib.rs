@@ -70,6 +70,8 @@ type Reply = oneshot::Sender<Result<Snapshot, String>>;
 pub struct Manager {
     commands: mpsc::Sender<(Action, Reply)>,
     snapshots: watch::Receiver<Snapshot>,
+    store: Store,
+    engine: Engine,
 }
 struct Active {
     cancel: CancellationToken,
@@ -122,8 +124,8 @@ impl Manager {
         tokio::spawn(
             Actor {
                 snapshot,
-                engine,
-                store,
+                engine: engine.clone(),
+                store: store.clone(),
                 active: HashMap::new(),
                 command_rx,
                 snapshot_tx,
@@ -137,10 +139,22 @@ impl Manager {
         Ok(Self {
             commands,
             snapshots,
+            store,
+            engine,
         })
     }
     pub fn snapshot(&self) -> Snapshot {
         self.snapshots.borrow().clone()
+    }
+    pub async fn preview(&self, url: &str) -> Result<ndm_core::DownloadPreview, String> {
+        let root = self.snapshot().settings.directory;
+        self.engine.preview(url, &root).await.map_err(|e| e.to_string())
+    }
+    pub async fn usage(&self) -> Result<Vec<ndm_core::Usage>, String> {
+        self.store.usage_since(Local::now().timestamp().div_euclid(3600) - 31 * 24).await
+    }
+    pub async fn sync_usage(&self, device: String, entries: Vec<ndm_core::Usage>) -> Result<(), String> {
+        self.store.merge_usage(device, entries).await
     }
     pub fn subscribe(&self) -> watch::Receiver<Snapshot> {
         self.snapshots.clone()
@@ -364,6 +378,7 @@ impl Actor {
                     }
                     validated.push(url);
                 }
+                let first_new = self.snapshot.downloads.len();
                 for url in validated {
                     self.snapshot.downloads.push(Download {
                         id: Uuid::new_v4().to_string(),
@@ -387,6 +402,11 @@ impl Actor {
                     });
                 }
                 if start {
+                    // Manual downloads take the next free slot, ahead of queue-only entries.
+                    let next = self.snapshot.downloads[..first_new].iter()
+                        .position(|job| job.status == Status::Queued).unwrap_or(first_new);
+                    let added = self.snapshot.downloads.len() - first_new;
+                    self.snapshot.downloads[next..].rotate_right(added);
                     self.snapshot.running = true;
                     self.snapshot.draining = false;
                 }
@@ -623,6 +643,7 @@ impl Actor {
                 }
                 let job = &mut self.snapshot.downloads[index];
                 job.speed = 0.0;
+                let mut usage = None;
                 match result {
                     Ok((path, hash)) => {
                         job.downloaded = tokio::fs::metadata(&path)
@@ -635,6 +656,12 @@ impl Actor {
                         job.status = Status::Completed;
                         job.error = None;
                         let _ = self.engine.discard(&id).await;
+                        usage = Some(ndm_core::Usage {
+                            hour: Local::now().timestamp().div_euclid(3600),
+                            category: ndm_core::file_category(&job.name).into(),
+                            bytes: job.downloaded,
+                            device: "pc".into(),
+                        });
                     }
                     Err(ndm_core::DownloadError::Cancelled) => {
                         job.status = active.after;
@@ -651,6 +678,11 @@ impl Actor {
                 if self.snapshot.draining && self.active.is_empty() {
                     self.snapshot.running = false;
                     self.snapshot.draining = false;
+                }
+                if usage.is_some() {
+                    if let Err(error) = self.store.save_with_usage(&self.snapshot, usage).await {
+                        self.snapshot.downloads[index].error = Some(format!("Could not save download statistics: {error}"));
+                    }
                 }
             }
         }

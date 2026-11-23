@@ -99,8 +99,8 @@ desktop behavior, correct RTL rendering, clean-machine installation or complete
 crash resilience. These remain unverified acceptance criteria for this development alpha.
 
 There is no telemetry, DRM bypass, page-video extraction or support for arbitrary
-authenticated browser sessions. Auto connection tuning, notifications, sleep
-prevention, automatic categorization, expired-link replacement, clipboard watching
+authenticated browser sessions. Auto connection tuning, sleep
+prevention, expired-link replacement, background clipboard watching
 and shutdown-after-queue are not implemented. The mobile app is Android only. PC
 control and file sharing require the PC application to be running on the same local network.
 

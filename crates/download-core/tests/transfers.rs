@@ -32,7 +32,10 @@ fn engine(root: &Path) -> Engine {
 async fn preview_reads_head_metadata_without_starting_a_job() {
     let server = support::Server::start().await;
     let dir = tempfile::tempdir().unwrap();
-    let preview = engine(dir.path()).preview(&server.url("range"), dir.path()).await.unwrap();
+    let preview = engine(dir.path())
+        .preview(&server.url("range"), dir.path())
+        .await
+        .unwrap();
     assert_eq!(preview.name, "fixture.bin");
     assert_eq!(preview.total, Some(server.data.len() as u64));
     assert_eq!(preview.resumable, Some(true));

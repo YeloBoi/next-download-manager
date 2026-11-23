@@ -35,16 +35,30 @@ async fn manual_start_precedes_the_waiting_queue_and_persists_usage() {
     let settings = Settings::new(dir.path().join("downloads"));
     let data = dir.path().join("state");
     let manager = Manager::open(data.clone(), settings.clone()).await.unwrap();
-    manager.execute(add(vec![server.url("plain")], false)).await.unwrap();
+    manager
+        .execute(add(vec![server.url("plain")], false))
+        .await
+        .unwrap();
     let start = server.url("range");
-    let response = manager.execute(add(vec![start.clone()], true)).await.unwrap();
+    let response = manager
+        .execute(add(vec![start.clone()], true))
+        .await
+        .unwrap();
     assert_eq!(response.downloads[0].url, start);
     let completed = wait(&manager, |s| s.downloads[0].status == Status::Completed).await;
-    manager.execute(Action::Remove {id:completed.downloads[0].id.clone(),delete_files:false}).await.unwrap();
+    manager
+        .execute(Action::Remove {
+            id: completed.downloads[0].id.clone(),
+            delete_files: false,
+        })
+        .await
+        .unwrap();
     manager.execute(Action::Shutdown).await.unwrap();
     let reopened = Manager::open(data, settings).await.unwrap();
     let usage = reopened.usage().await.unwrap();
-    assert!(usage.iter().any(|row| row.device == "pc" && row.bytes >= server.data.len() as u64));
+    assert!(usage
+        .iter()
+        .any(|row| row.device == "pc" && row.bytes >= server.data.len() as u64));
     reopened.execute(Action::Shutdown).await.unwrap();
 }
 

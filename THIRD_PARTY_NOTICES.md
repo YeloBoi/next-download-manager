@@ -9,6 +9,10 @@ url, uuid, sha2, percent-encoding, fs2, chrono, dirs, rusqlite/SQLite, Tauri and
 its dialog, opener and single-instance plugins. Consult the exact packages in
 Cargo.lock and their LICENSE/NOTICE files for authoritative terms.
 
+Android uses AndroidX Core and ZXing Android Embedded (Apache-2.0). The scanning
+library includes ZXing Core (Apache-2.0). These dependencies are independent of
+the project’s own licensing status.
+
 Frontend: Tauri API/plugins (MIT OR Apache-2.0), TypeScript (Apache-2.0), Vite
 (MIT), Lucide icons (ISC), Inter font (SIL OFL-1.1), Vazirmatn font (SIL OFL-1.1),
 Fontsource packaging and their transitive dependencies. Font files are bundled

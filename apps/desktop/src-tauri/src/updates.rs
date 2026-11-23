@@ -205,7 +205,9 @@ pub async fn install_update(
         drop(file);
         // NSIS may require the running executable to close before replacing it.
         manager.execute(Action::Shutdown).await?;
-        let launch = std::process::Command::new(&path).spawn();
+        let launch = std::process::Command::new(&path)
+            .args(["/P", "/R", "/UPDATE"])
+            .spawn();
         if let Err(error) = launch {
             let _ = app.emit("ndm://error", error.to_string());
             let _ = tokio::fs::remove_dir_all(&folder).await;

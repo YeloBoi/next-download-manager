@@ -27,7 +27,21 @@ jobs:
         run: |
           test -f "$ANDROID_HOME/platforms/android-36/android.jar"
           test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
-      - run: gradle -p apps/android --no-daemon assembleDebug lintDebug
+      - run: gradle -p apps/android --no-daemon assembleDebug assembleDebugAndroidTest lintDebug
+      - name: Enable hardware acceleration for the hosted emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-ndm-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Exercise UI, APK metadata and pinned pairing on Android
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: bash scripts/Check-Android.sh
       - name: Sign the Android release
         if: inputs.release
         env:

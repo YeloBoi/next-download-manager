@@ -9,6 +9,7 @@ android {
         targetSdk 35
         versionCode 8
         versionName '0.1.0-alpha.8'
+        testInstrumentationRunner 'io.github.yeloboi.ndm.AndroidSmoke'
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17

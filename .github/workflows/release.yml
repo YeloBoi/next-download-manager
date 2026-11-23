@@ -92,6 +92,7 @@ jobs:
           cd release-files
           sha256sum --check --strict SHA256SUMS
           sha256sum -- ./*.apk | sed 's#  \./#  #' >> SHA256SUMS
+          sha256sum --check --strict SHA256SUMS
           gh release create "$RELEASE_TAG" ./*.exe ./*.zip ./*.png ./*.apk SHA256SUMS RELEASE_NOTES.md --verify-tag --draft --prerelease --title "NDM $RELEASE_TAG" --notes-file RELEASE_NOTES.md
           # GitHub excludes prereleases from Latest; the tag and notes retain alpha status.
           gh release edit "$RELEASE_TAG" --draft=false --prerelease=false --latest

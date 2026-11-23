@@ -1,4 +1,4 @@
-# NDM 0.1.0-alpha.9 — Connect remotely and check for updates
+# NDM 0.1.0-alpha.10 — Connect remotely and check for updates
 
 - Update both Windows and Android, connect both devices to the same Tailscale network, then use **Settings → Your phone → Remote QR (Tailscale)** on Windows and scan on Android. The PC can stay on Wi-Fi while the phone uses mobile data. Keep NDM open on Windows.
 - For local pairing, **Show pairing QR** can include multiple PC addresses. New remembered pairings try the other addresses if the current route becomes unavailable.

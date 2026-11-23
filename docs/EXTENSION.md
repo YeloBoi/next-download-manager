@@ -16,14 +16,17 @@ folder. **Check connection** in NDM repairs that registration.
    has a fixed ID (`llccemgchkhblimpddegikfekglcjoen`) that is registered automatically
    for both browsers. No extension ID or PowerShell command is needed.
 
-The extension is not currently published in Chrome Web Store or Edge Add-ons.
+The extension popup links to newer versions. To update an unpacked install,
+extract the new ZIP into the same folder, then click **Reload** on the extension
+card. The extension is not currently published in Chrome Web Store or Edge Add-ons.
 
 ## Firefox 140 or later
 
 Open `about:debugging#/runtime/this-firefox`, select **Load Temporary Add-on**, and
 choose **firefox.zip** from the release (or its extracted manifest.json). Reload
-it after restarting Firefox. The package is unsigned; permanent installation
-requires Mozilla signing. It uses Firefox background scripts rather than the
+it after restarting Firefox. If a Mozilla-signed **firefox.xpi** is available
+in a release, install it once for permanent installation and automatic updates.
+The ZIP is temporary. The extension uses Firefox background scripts rather than the
 Chromium service worker and has the fixed ID `ndm@yeloboi.github.io`.
 
 ## Download a file

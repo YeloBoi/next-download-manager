@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0-alpha.9
+## 0.1.0-alpha.10
 
 - Pair through Tailscale across Wi-Fi and mobile data. Local pairing and remembered sessions can try more than one address.
 - Check, download and verify Android updates from the latest GitHub Release before opening Android’s installer.

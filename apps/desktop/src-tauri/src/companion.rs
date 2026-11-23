@@ -932,7 +932,10 @@ pub async fn companion_pair(
     if state.server.is_none() {
         return Err("Enable phone connection first.".into());
     }
-    let hosts: Vec<_> = ips.iter().map(|ip| format!("{ip}:{}", state.port)).collect();
+    let hosts: Vec<_> = ips
+        .iter()
+        .map(|ip| format!("{ip}:{}", state.port))
+        .collect();
     let host = hosts
         .first()
         .ok_or("No usable local network or Tailscale address found.")?;

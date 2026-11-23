@@ -3,7 +3,7 @@ members = ["crates/download-core", "crates/storage", "crates/queue", "crates/bro
 resolver = "2"
 
 [workspace.package]
-version = "0.1.0-alpha.9"
+version = "0.1.0-alpha.10"
 edition = "2021"
 
 [workspace.dependencies]

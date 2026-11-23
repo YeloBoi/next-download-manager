@@ -7,8 +7,8 @@ android {
         applicationId 'io.github.yeloboi.ndm'
         minSdk 26
         targetSdk 35
-        versionCode 9
-        versionName '0.1.0-alpha.9'
+        versionCode 10
+        versionName '0.1.0-alpha.10'
         testInstrumentationRunner 'io.github.yeloboi.ndm.AndroidSmoke'
     }
     compileOptions {

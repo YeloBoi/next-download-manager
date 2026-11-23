@@ -1,5 +1,25 @@
 # Hosted Windows build evidence
 
+## 0.1.0-alpha.7 automatic browser registration and real browser downloads
+
+- CI: https://github.com/YeloBoi/next-download-manager/actions/runs/45174575936
+- Release: https://github.com/YeloBoi/next-download-manager/actions/runs/45175978317
+- Hosted Windows tested the packaged NSIS installer, then loaded the real release extension in Chrome, Edge and Firefox. Checked registration without manual setup, cold launch, automatic connection, queue-only, starting the same queued URL, and the SHA-256 of downloaded files.
+- Hosted Windows verified cold/warm window restoration and app lifetime after the native host exits. Hosted Edge checked card hide/restore across connect/disconnect. Hosted Linux Firefox checked background/native-port recovery and retention of rejected links.
+- Installer and portable app register Chrome, Edge and Firefox using stable IDs. Chromium is unpacked; Firefox is temporary and unsigned. No store publication.
+- Published as Latest with 8 assets after validating SHA256SUMS.
+
+| Release asset | Bytes |
+| --- | ---: |
+| NDM-0.1.0-alpha.7-chromium.zip | 40,420 |
+| NDM-0.1.0-alpha.7-firefox.zip | 40,126 |
+| NDM-0.1.0-alpha.7-windows-x64-portable.zip | 10,282,255 |
+| NDM_0.1.0-alpha.7_x64-setup.exe | 6,117,396 |
+| preview-en-dark.png | 81,313 |
+| preview-fa-light.png | 76,035 |
+| RELEASE_NOTES.md | 6,051 |
+| SHA256SUMS | 663 |
+
 ## 0.1.0-alpha.5 automatic Firefox connection
 
 - Source/tag: `a871252dc7908d160f5b2d5783781032f637dd44` / `v0.1.0-alpha.5`.

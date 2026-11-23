@@ -696,6 +696,14 @@ async fn write_chunk(
         .await
         .map_err(io_error)?;
     let stored = file.metadata().await.map_err(io_error)?.len();
+    if stored > t.total {
+        t.phase = Phase::Failed;
+        t.error =
+            Some("Partial file no longer matches. Clear the transfer on the PC and retry.".into());
+        let response = t.public();
+        app.save(&state.saved).await.map_err(io_error)?;
+        return Ok(Json(response));
+    }
     if offset != stored
         || offset > t.total
         || body.len() as u64 > t.total - offset

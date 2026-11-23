@@ -4,6 +4,8 @@ on:
 permissions:
   contents: read
 jobs:
+  android:
+    uses: ./.github/workflows/android.yml
   prepare:
     runs-on: ubuntu-latest
     steps:
@@ -36,4 +38,5 @@ jobs:
           cache-on-failure: true
       - run: npm ci --include=optional
       - run: npm run check
-      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - if: always()
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings

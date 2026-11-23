@@ -6,6 +6,12 @@
 /.taste-skill/*/
 /apps/desktop/src-tauri/gen/
 /apps/desktop/src-tauri/tauri.ci.conf.json
+/apps/android/.gradle/
+/apps/android/app/build/
+/apps/android/local.properties
+*.p12
+*.jks
+*.keystore
 /.github-local/
 *.db
 *.db-shm

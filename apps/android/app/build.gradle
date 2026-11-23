@@ -1,0 +1,38 @@
+plugins { id 'com.android.application' version '8.13.2' }
+
+android {
+    namespace 'io.github.yeloboi.ndm'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'io.github.yeloboi.ndm'
+        minSdk 26
+        targetSdk 35
+        versionCode 8
+        versionName '0.1.0-alpha.8'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    signingConfigs {
+        release {
+            if (System.getenv('NDM_ANDROID_KEYSTORE')) {
+                storeFile file(System.getenv('NDM_ANDROID_KEYSTORE'))
+                storePassword System.getenv('NDM_ANDROID_KEY_PASSWORD')
+                keyAlias System.getenv('NDM_ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('NDM_ANDROID_KEY_PASSWORD')
+                storeType 'PKCS12'
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (System.getenv('NDM_ANDROID_KEYSTORE')) signingConfig signingConfigs.release
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.16.0'
+    implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
+}

@@ -62,7 +62,9 @@ pub enum Action {
     Settings {
         settings: Settings,
     },
-    ConfirmPreference { skip: bool },
+    ConfirmPreference {
+        skip: bool,
+    },
     Shutdown,
 }
 
@@ -149,12 +151,21 @@ impl Manager {
     }
     pub async fn preview(&self, url: &str) -> Result<ndm_core::DownloadPreview, String> {
         let root = self.snapshot().settings.directory;
-        self.engine.preview(url, &root).await.map_err(|e| e.to_string())
+        self.engine
+            .preview(url, &root)
+            .await
+            .map_err(|e| e.to_string())
     }
     pub async fn usage(&self) -> Result<Vec<ndm_core::Usage>, String> {
-        self.store.usage_since(Local::now().timestamp().div_euclid(3600) - 31 * 24).await
+        self.store
+            .usage_since(Local::now().timestamp().div_euclid(3600) - 31 * 24)
+            .await
     }
-    pub async fn sync_usage(&self, device: String, entries: Vec<ndm_core::Usage>) -> Result<(), String> {
+    pub async fn sync_usage(
+        &self,
+        device: String,
+        entries: Vec<ndm_core::Usage>,
+    ) -> Result<(), String> {
         self.store.merge_usage(device, entries).await
     }
     pub fn subscribe(&self) -> watch::Receiver<Snapshot> {
@@ -405,8 +416,10 @@ impl Actor {
                 }
                 if start {
                     // Manual downloads take the next free slot, ahead of queue-only entries.
-                    let next = self.snapshot.downloads[..first_new].iter()
-                        .position(|job| job.status == Status::Queued).unwrap_or(first_new);
+                    let next = self.snapshot.downloads[..first_new]
+                        .iter()
+                        .position(|job| job.status == Status::Queued)
+                        .unwrap_or(first_new);
                     let added = self.snapshot.downloads.len() - first_new;
                     self.snapshot.downloads[next..].rotate_right(added);
                     self.snapshot.running = true;
@@ -683,7 +696,8 @@ impl Actor {
                 }
                 if usage.is_some() {
                     if let Err(error) = self.store.save_with_usage(&self.snapshot, usage).await {
-                        self.snapshot.downloads[index].error = Some(format!("Could not save download statistics: {error}"));
+                        self.snapshot.downloads[index].error =
+                            Some(format!("Could not save download statistics: {error}"));
                     }
                 }
             }

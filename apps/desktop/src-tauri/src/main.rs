@@ -5,11 +5,14 @@ use ndm_queue::{Action, Manager};
 use tauri::{Emitter, Manager as TauriManager, State};
 use tauri_plugin_opener::OpenerExt;
 
-mod updates;
 mod companion;
+mod updates;
 
 #[tauri::command]
-async fn preview_download(url: String, manager: State<'_, Manager>) -> Result<ndm_core::DownloadPreview, String> {
+async fn preview_download(
+    url: String,
+    manager: State<'_, Manager>,
+) -> Result<ndm_core::DownloadPreview, String> {
     manager.preview(&url).await
 }
 
@@ -100,9 +103,7 @@ async fn open_download(
 }
 
 #[tauri::command]
-async fn import_links(
-    app: tauri::AppHandle,
-) -> Result<Vec<String>, String> {
+async fn import_links(app: tauri::AppHandle) -> Result<Vec<String>, String> {
     use tauri_plugin_dialog::DialogExt;
     let path = app
         .dialog()
@@ -201,12 +202,16 @@ fn main() {
                 .join("NDM");
             let downloads =
                 dirs::download_dir().ok_or("Cannot locate the Windows Downloads folder.")?;
-            let manager =
-                tauri::async_runtime::block_on(Manager::open(data.clone(), Settings::new(downloads)))
-                    .map_err(std::io::Error::other)?;
+            let manager = tauri::async_runtime::block_on(Manager::open(
+                data.clone(),
+                Settings::new(downloads),
+            ))
+            .map_err(std::io::Error::other)?;
             let companion = tauri::async_runtime::block_on(companion::Companion::open(
-                data.join("companion"), manager.clone()
-            )).map_err(std::io::Error::other)?;
+                data.join("companion"),
+                manager.clone(),
+            ))
+            .map_err(std::io::Error::other)?;
             app.manage(companion);
             app.manage(manager.clone());
             let handle = app.handle().clone();

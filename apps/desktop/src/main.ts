@@ -270,7 +270,7 @@ function showAdd(multiple=false, initial:string[] = []) {
     const value=source.value;
     if(last===value&&inspection)return inspection;
     last=value;
-    const urls=parseLinks(value);
+    const urls:string[]=parseLinks(value);
     meta.hidden=!native||!validUrls(urls);
     if(meta.hidden){inspection=undefined;return;}
     meta.textContent=t('checkingFile');

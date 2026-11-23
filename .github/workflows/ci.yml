@@ -10,6 +10,8 @@ concurrency:
   group: windows-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  android:
+    uses: ./.github/workflows/android.yml
   firefox:
     uses: ./.github/workflows/firefox.yml
   windows:

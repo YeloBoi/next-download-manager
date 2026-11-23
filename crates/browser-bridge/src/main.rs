@@ -53,21 +53,67 @@ fn reply(response: &Response) -> Result<(), String> {
 }
 
 #[cfg(windows)]
-fn relaunch_from_explorer() -> Result<(), String> {
+async fn relaunch_in_desktop_session() -> Result<(), String> {
     let desktop = std::env::current_exe()
         .map_err(|e| e.to_string())?
         .with_file_name("ndm.exe");
     let windows = std::env::var_os("SystemRoot").ok_or("Cannot locate Windows.")?;
-    let explorer = std::path::Path::new(&windows).join("explorer.exe");
-    tokio::process::Command::new(explorer)
-        .arg(desktop)
-        .creation_flags(0x01000000) // CREATE_BREAKAWAY_FROM_JOB
+    let powershell = std::path::Path::new(&windows)
+        .join("System32")
+        .join("WindowsPowerShell")
+        .join("v1.0")
+        .join("powershell.exe");
+    let mut command = tokio::process::Command::new(powershell);
+    command
+        .args(["-NoProfile", "-NonInteractive", "-Command", r#"
+$ErrorActionPreference = 'Stop'
+$service = New-Object -ComObject 'Schedule.Service'
+$service.Connect()
+$root = $service.GetFolder('\')
+$definition = $service.NewTask(0)
+$definition.RegistrationInfo.Description = 'Open NDM in the active desktop session after an explicit browser request.'
+$definition.Principal.LogonType = 3
+$definition.Principal.RunLevel = 0
+$definition.Settings.AllowDemandStart = $true
+$definition.Settings.DisallowStartIfOnBatteries = $false
+$definition.Settings.StopIfGoingOnBatteries = $false
+$definition.Settings.ExecutionTimeLimit = 'PT0S'
+$action = $definition.Actions.Create(0)
+$action.Path = $env:NDM_DESKTOP_EXECUTABLE
+$action.Arguments = '--browser-request'
+$name = 'NDM Browser Launch ' + [Guid]::NewGuid().ToString()
+$user = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+# 2 = create new; 3 = use the signed-in user's existing interactive token.
+$task = $root.RegisterTaskDefinition($name, $definition, 2, $user, $null, 3, $null)
+try {
+    $instance = $task.Run($null)
+    for ($i=0; $i -lt 20 -and $instance.State -eq 2; $i++) {
+        Start-Sleep -Milliseconds 150
+        $instance.Refresh()
+    }
+    if ($instance.State -eq 2) { throw 'NDM did not start in the current Windows session.' }
+} finally {
+    $root.DeleteTask($name, 0)
+}
+"#])
+        .env("NDM_DESKTOP_EXECUTABLE", desktop)
+        .creation_flags(0x08000000) // CREATE_NO_WINDOW
+        .kill_on_drop(true)
         .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn()
-        .map(|_| ())
-        .map_err(|error| format!("Could not open NDM through Windows Explorer: {error}."))
+        .stdout(std::process::Stdio::null());
+    let output = tokio::time::timeout(std::time::Duration::from_secs(10), command.output())
+        .await
+        .map_err(|_| "Could not open NDM: Windows desktop launch timed out.".to_owned())?
+        .map_err(|error| format!("Could not open NDM in the Windows desktop session: {error}."))?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        let error = String::from_utf8_lossy(&output.stderr);
+        Err(format!(
+            "Could not open NDM in the Windows desktop session: {}",
+            error.trim()
+        ))
+    }
 }
 
 async fn run(args: &[String]) -> Result<(), String> {
@@ -173,8 +219,8 @@ async fn forward(
                 #[cfg(windows)]
                 if _firefox && status.code() == Some(101) {
                     // WebView2 can disconnect during a Firefox-started cold launch.
-                    // Ask the user's desktop shell to open NDM and keep waiting for the queue.
-                    if let Err(error) = relaunch_from_explorer() {
+                    // Start outside Firefox's process tree and keep waiting for the queue.
+                    if let Err(error) = relaunch_in_desktop_session().await {
                         let _ = tokio::fs::remove_file(path.with_extension("request")).await;
                         return Err(error);
                     }

@@ -108,6 +108,13 @@ def stop_desktop():
                    stderr=subprocess.DEVNULL, timeout=15, check=False)
 
 
+def print_native_processes():
+    processes = subprocess.run(['tasklist', '/fo', 'csv'], capture_output=True, text=True, timeout=10, check=True)
+    for line in processes.stdout.splitlines():
+        if line.lower().startswith(('"ndm.exe"', '"ndm-native-host.exe"')):
+            print(f'Native processes: {line}', flush=True)
+
+
 def native_probe(driver, kind='ping', url=None):
     return driver.execute_async_script("""
       const [kind, url, done] = arguments;
@@ -133,6 +140,7 @@ def check(name, chromium, firefox, base, log):
     driver, popup = browser_session(name, chromium, firefox, log)
     try:
         print(f'{name} {driver.capabilities["browserVersion"]}: loaded release extension', flush=True)
+        driver.set_script_timeout(45)
         driver.get(popup)
         wait = WebDriverWait(driver, 25)
         wait.until(lambda d: 'Waiting for NDM' in d.find_element(By.ID, 'connection').text)
@@ -143,8 +151,13 @@ def check(name, chromium, firefox, base, log):
         cold = f'{name}-cold-{uuid.uuid4().hex}.bin'
         try:
             popup_download(driver, f'{base}/{cold}', 'now')
-        except AssertionError:
-            print(f'{name} direct download probe: {native_probe(driver, "add", f"{base}/{cold}")}', flush=True)
+        except AssertionError as error:
+            print(f'{name} popup error: {error}; HTTP request observed: {f"/{cold}" in RECEIVED}', flush=True)
+            print_native_processes()
+            try:
+                print(f'{name} direct download probe: {native_probe(driver, "add", f"{base}/{cold}")}', flush=True)
+            except Exception as probe_error:
+                print(f'{name} direct download probe failed: {probe_error}', flush=True)
             raise
         verify_file(cold)
         wait.until(lambda d: d.find_element(By.ID, 'connection').text == 'Desktop connected')
@@ -198,4 +211,6 @@ with tempfile.TemporaryDirectory(prefix='ndm-extensions-') as temporary:
                 server.shutdown()
     finally:
         stop_desktop()
+        subprocess.run(['taskkill', '/im', 'ndm-native-host.exe', '/f'], stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL, timeout=15, check=False)
         subprocess.run([str(install / 'uninstall.exe'), '/S'], timeout=60, check=True)

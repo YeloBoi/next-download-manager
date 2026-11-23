@@ -101,7 +101,7 @@ async fn forward(
     let path = directory.join(&id);
     // Launch only the sibling desktop executable, never a URL or a shell command.
     // Pings do not start the application; only an explicit download request does.
-    if request.kind == "add" {
+    let mut desktop = if request.kind == "add" {
         let desktop = std::env::current_exe()
             .map_err(|e| e.to_string())?
             .with_file_name("ndm.exe");
@@ -111,18 +111,19 @@ async fn forward(
         if _firefox {
             command.creation_flags(0x01000000); // CREATE_BREAKAWAY_FROM_JOB
         }
-        if let Err(error) = command
+        let child = command
             .arg("--browser-request")
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .spawn()
-        {
-            return Err(format!(
-                "Could not open NDM: {error}. Keep ndm.exe beside the native host."
-            ));
-        }
-    }
+            .map_err(|error| {
+                format!("Could not open NDM: {error}. Keep ndm.exe beside the native host.")
+            })?;
+        Some(child)
+    } else {
+        None
+    };
     tokio::fs::write(path.with_extension("request.tmp"), bytes)
         .await
         .map_err(|e| e.to_string())?;
@@ -143,6 +144,18 @@ async fn forward(
             response.request_id.clone_from(&request.request_id);
             let _ = tokio::fs::remove_file(path.with_extension("response")).await;
             return Ok(response);
+        }
+        // An existing instance makes the new process exit successfully after restoring it.
+        // A failed startup must report its exit status instead of leaving the browser waiting.
+        if let Some(status) = desktop
+            .as_mut()
+            .and_then(|child| child.try_wait().ok().flatten())
+        {
+            if !status.success() {
+                let _ = tokio::fs::remove_file(path.with_extension("request")).await;
+                return Err(format!("Could not open NDM: {status}."));
+            }
+            desktop = None;
         }
         if started.elapsed()
             > std::time::Duration::from_secs(if request.kind == "ping" { 2 } else { 30 })

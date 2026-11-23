@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0-alpha.12
+## 0.1.0-alpha.13
 
 - Add Bluetooth pairing for Android and Windows without an internet connection, alongside Wi-Fi / Internet pairing.
 - Guide both devices through turning on Bluetooth and keep PC controls and file sharing on the existing encrypted connection.

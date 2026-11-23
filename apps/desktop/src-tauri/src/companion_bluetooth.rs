@@ -138,12 +138,12 @@ async fn relay(bluetooth: &StreamSocket, port: u16) -> std::result::Result<(), S
         .map_err(message)?;
     tcp.set_nodelay(true).map_err(message)?;
     let (mut from_pc, mut to_pc) = tcp.into_split();
-    let reader =
-        DataReader::CreateDataReader(bluetooth.InputStream().map_err(message)?).map_err(message)?;
+    let reader = DataReader::CreateDataReader(&bluetooth.InputStream().map_err(message)?)
+        .map_err(message)?;
     reader
         .SetInputStreamOptions(InputStreamOptions::Partial)
         .map_err(message)?;
-    let writer = DataWriter::CreateDataWriter(bluetooth.OutputStream().map_err(message)?)
+    let writer = DataWriter::CreateDataWriter(&bluetooth.OutputStream().map_err(message)?)
         .map_err(message)?;
     tokio::select! {
         result = async {

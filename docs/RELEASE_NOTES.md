@@ -1,4 +1,4 @@
-# NDM 0.1.0-alpha.12 — Bluetooth or Wi-Fi / Internet
+# NDM 0.1.0-alpha.13 — Bluetooth or Wi-Fi / Internet
 
 - Choose **Bluetooth** in Windows Settings → Your phone, and in Android under PC → Scan QR code. NDM requests Bluetooth if it is off. Scan the new QR code and confirm Bluetooth pairing if the OS asks. No internet or Wi-Fi is required.
 - Choose **Wi-Fi / Internet** for a shared Wi-Fi network or phone hotspot. For separate internet connections, use **Remote QR (Tailscale)** with both devices signed into the same Tailscale network.

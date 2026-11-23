@@ -6,6 +6,8 @@ use tauri::{Emitter, Manager as TauriManager, State};
 use tauri_plugin_opener::OpenerExt;
 
 mod companion;
+#[cfg(windows)]
+mod companion_bluetooth;
 mod updates;
 
 #[tauri::command]

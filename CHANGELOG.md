@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.0-alpha.12
+
+- Add Bluetooth pairing for Android and Windows without an internet connection, alongside Wi-Fi / Internet pairing.
+- Guide both devices through turning on Bluetooth and keep PC controls and file sharing on the existing encrypted connection.
+
 ## 0.1.0-alpha.11
 
 - Pair through Tailscale across Wi-Fi and mobile data. Local pairing and remembered sessions can try more than one address.

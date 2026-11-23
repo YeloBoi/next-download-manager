@@ -36,5 +36,8 @@ mdns-sd = "0.22"
 if-addrs = "0.15"
 same-file = "1"
 
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62.2", features = ["Devices_Bluetooth_Rfcomm", "Devices_Radios", "Networking_Sockets", "Storage_Streams"] }
+
 [dev-dependencies]
 tempfile.workspace = true

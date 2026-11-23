@@ -163,6 +163,8 @@ impl Transfer {
 #[derive(Default, Deserialize, Serialize)]
 struct Saved {
     enabled: bool,
+    #[serde(default)]
+    bluetooth: bool,
     devices: Vec<Device>,
     transfers: Vec<Transfer>,
 }
@@ -175,6 +177,8 @@ struct Runtime {
     fingerprint: String,
     discovery: Option<(mdns_sd::ServiceDaemon, String)>,
     port: u16,
+    #[cfg(windows)]
+    bluetooth: Option<crate::companion_bluetooth::Listener>,
 }
 
 #[derive(Clone)]
@@ -205,6 +209,16 @@ impl Companion {
         if startup {
             if let Err(error) = state.enable(true).await {
                 eprintln!("Companion: {error}");
+            }
+            #[cfg(windows)]
+            {
+                let mut runtime = state.inner.lock().await;
+                if runtime.server.is_some() && runtime.saved.bluetooth {
+                    runtime.bluetooth =
+                        crate::companion_bluetooth::Listener::start(runtime.port, None)
+                            .await
+                            .ok();
+                }
             }
         }
         Ok(state)
@@ -331,6 +345,10 @@ impl Companion {
             self.save(&state.saved).await?;
             state.online.clear();
             state.pair = None;
+            #[cfg(windows)]
+            {
+                state.bluetooth = None;
+            }
             if let Some((daemon, name)) = state.discovery.take() {
                 let _ = daemon.unregister(&name);
                 let _ = daemon.shutdown();
@@ -913,14 +931,21 @@ pub async fn companion_enable(companion: tauri::State<'_, Companion>, enabled: b
 pub async fn companion_pair(
     companion: tauri::State<'_, Companion>,
     remote: Option<bool>,
+    bluetooth: Option<bool>,
+    app: tauri::AppHandle,
 ) -> Result<serde_json::Value> {
     use qrcode::{types::Color, QrCode};
+    let bluetooth = bluetooth.unwrap_or(false);
     let remote = remote.unwrap_or(false);
-    let tunnel = tailscale_ip().await;
+    let tunnel = if bluetooth {
+        None
+    } else {
+        tailscale_ip().await
+    };
     if remote && tunnel.is_none() {
         return Err("Open Tailscale and sign in on the PC before making a remote QR code.".into());
     }
-    let mut ips = lan_ips();
+    let mut ips = if bluetooth { Vec::new() } else { lan_ips() };
     if let Some(tunnel) = tunnel {
         if remote {
             ips.insert(0, tunnel);
@@ -936,14 +961,42 @@ pub async fn companion_pair(
         .iter()
         .map(|ip| format!("{ip}:{}", state.port))
         .collect();
-    let host = hosts
-        .first()
-        .ok_or("No usable local network or Tailscale address found.")?;
+    #[cfg(not(windows))]
+    let _ = app;
+    let host = if bluetooth {
+        #[cfg(windows)]
+        {
+            state.bluetooth = None;
+            let listener = tokio::time::timeout(
+                std::time::Duration::from_secs(20),
+                crate::companion_bluetooth::Listener::start(state.port, Some(app)),
+            )
+            .await
+            .map_err(|_| "Bluetooth took too long. Turn it on in Windows and try again.")??;
+            if !state.saved.bluetooth {
+                state.saved.bluetooth = true;
+                if let Err(error) = companion.save(&state.saved).await {
+                    state.saved.bluetooth = false;
+                    return Err(error);
+                }
+            }
+            let address = listener.address.clone();
+            state.bluetooth = Some(listener);
+            address
+        }
+        #[cfg(not(windows))]
+        return Err("Bluetooth pairing is available on Windows.".into());
+    } else {
+        hosts
+            .first()
+            .ok_or("Connect the PC to Wi-Fi, Ethernet or Tailscale first.")?
+            .clone()
+    };
     let expires = now() + PAIR_SECONDS;
     let code = secret();
     let data = format!(
         "NDM1:{}",
-        serde_json::json!({"host":host,"hosts":hosts,"pin":state.fingerprint,"code":code,"expires":expires})
+        serde_json::json!({"host":host,"hosts":hosts,"bluetooth":bluetooth,"pin":state.fingerprint,"code":code,"expires":expires})
     );
     let qr = QrCode::new(data.as_bytes()).map_err(err)?;
     let size = qr.width();
@@ -957,7 +1010,9 @@ pub async fn companion_pair(
         }
     }
     state.pair = Some((sha(code), expires));
-    Ok(serde_json::json!({"path":path,"size":size+8,"expires":expires,"host":host,"remote":remote}))
+    Ok(
+        serde_json::json!({"path":path,"size":size+8,"expires":expires,"host":host,"remote":remote,"bluetooth":bluetooth}),
+    )
 }
 #[tauri::command]
 pub async fn companion_revoke(companion: tauri::State<'_, Companion>, id: Uuid) -> Result<()> {

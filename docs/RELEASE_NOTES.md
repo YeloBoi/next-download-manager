@@ -1,4 +1,7 @@
-# NDM 0.1.0-alpha.11 — Connect remotely and check for updates
+# NDM 0.1.0-alpha.12 — Bluetooth or Wi-Fi / Internet
+
+- Choose **Bluetooth** in Windows Settings → Your phone, and in Android under PC → Scan QR code. NDM requests Bluetooth if it is off. Scan the new QR code and confirm Bluetooth pairing if the OS asks. No internet or Wi-Fi is required.
+- Choose **Wi-Fi / Internet** for a shared Wi-Fi network or phone hotspot. For separate internet connections, use **Remote QR (Tailscale)** with both devices signed into the same Tailscale network.
 
 - Update both Windows and Android, connect both devices to the same Tailscale network, then use **Settings → Your phone → Remote QR (Tailscale)** on Windows and scan on Android. The PC can stay on Wi-Fi while the phone uses mobile data. Keep NDM open on Windows.
 - For local pairing, **Show pairing QR** can include multiple PC addresses. New remembered pairings try the other addresses if the current route becomes unavailable.

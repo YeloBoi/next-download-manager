@@ -2554,7 +2554,7 @@ dependencies = [
 
 [[package]]
 name = "ndm-browser-bridge"
-version = "0.1.0-alpha.11"
+version = "0.1.0-alpha.12"
 dependencies = [
  "dirs 6.0.0",
  "ndm-core",
@@ -2567,7 +2567,7 @@ dependencies = [
 
 [[package]]
 name = "ndm-core"
-version = "0.1.0-alpha.11"
+version = "0.1.0-alpha.12"
 dependencies = [
  "axum",
  "fs2",
@@ -2586,7 +2586,7 @@ dependencies = [
 
 [[package]]
 name = "ndm-desktop"
-version = "0.1.0-alpha.11"
+version = "0.1.0-alpha.12"
 dependencies = [
  "axum",
  "axum-server",
@@ -2613,11 +2613,12 @@ dependencies = [
  "tempfile",
  "tokio",
  "uuid",
+ "windows",
 ]
 
 [[package]]
 name = "ndm-queue"
-version = "0.1.0-alpha.11"
+version = "0.1.0-alpha.12"
 dependencies = [
  "axum",
  "chrono",
@@ -2633,7 +2634,7 @@ dependencies = [
 
 [[package]]
 name = "ndm-storage"
-version = "0.1.0-alpha.11"
+version = "0.1.0-alpha.12"
 dependencies = [
  "ndm-core",
  "rusqlite",

@@ -10,7 +10,7 @@ type Transfer = { id: string; device: string; name: string; to_pc: boolean; byte
 type View = { enabled: boolean; pairing: boolean; devices: Device[]; transfers: Transfer[] };
 type Usage = { device: 'pc'|'mobile'; hour: number; bytes: number; category: string };
 type Update = { version: string; notes: string; installable: boolean; portable: boolean };
-type QR = { path: string; size: number; expires: number; host: string; remote?: boolean };
+type QR = { path: string; size: number; expires: number; host: string; remote?: boolean; bluetooth?: boolean };
 
 const categories: Key[] = ['video','audio','images','apps','games','archives','documents','other'];
 const windows = [24,168,720];
@@ -23,6 +23,9 @@ export function companionUI(native: boolean, t: Translate, toast: (message: stri
   let chart: Usage[] = [];
   let qr: QR | null = null;
   let qrExpired = false;
+  let networkOptions = false;
+  let creatingQr = false;
+  let pairingError = '';
   let period = 24;
   let category = '';
   let next: Update | null = null;
@@ -83,8 +86,12 @@ export function companionUI(native: boolean, t: Translate, toast: (message: stri
     if (!phone) return;
     if (qr&&Date.now()>=qr.expires*1000) { qr=null; qrExpired=true; }
     const devices=view?.devices||[];
-    const markup=`<div class="feature-actions">${buttons(view?.enabled?'phoneDisable':'phoneEnable','feature-enable-phone',t,(!native||!view)?'disabled':'')}${view?.enabled?buttons('pairPhone','feature-pair-phone',t)+buttons('pairRemote','feature-pair-remote',t):''}</div>
-      ${qr?`<figure class="pair-qr"><svg viewBox="0 0 ${qr.size} ${qr.size}" aria-label="${e(t(qr.remote?'pairRemote':'pairPhone'))}" role="img"><path d="${e(qr.path)}"></path></svg><figcaption>${e(t('pairHelp'))}<br><span dir="ltr">${e(qr.host)}</span></figcaption></figure>`:qrExpired?`<p class="feature-muted">${e(t('pairExpired'))}</p>`:''}
+    const available=creatingQr?'disabled':'';
+    const markup=`<div class="feature-actions">${buttons(view?.enabled?'phoneDisable':'phoneEnable','feature-enable-phone',t,(!native||!view||creatingQr)?'disabled':'')}${view?.enabled?buttons('pairBluetooth','feature-pair-bluetooth',t,available)+buttons('pairNetwork','feature-pair-network',t,`aria-expanded="${networkOptions}" ${available}`):''}</div>
+      ${view?.enabled&&networkOptions?`<p class="feature-muted">${e(t('networkPairHelp'))}</p><div class="feature-actions">${buttons('pairPhone','feature-pair-phone',t,available)}${buttons('pairRemote','feature-pair-remote',t,available)}</div>`:''}
+      ${creatingQr?`<p role="status">${e(t('pairPreparing'))}</p>`:''}
+      ${pairingError?`<p class="form-error" role="alert">${e(pairingError)}</p>`:''}
+      ${qr?`<figure class="pair-qr"><svg viewBox="0 0 ${qr.size} ${qr.size}" aria-label="${e(t(qr.bluetooth?'pairBluetooth':qr.remote?'pairRemote':'pairPhone'))}" role="img"><path d="${e(qr.path)}"></path></svg><figcaption>${e(t(qr.bluetooth?'bluetoothPairHelp':'pairHelp'))}<br><span dir="ltr">${e(qr.host)}</span></figcaption></figure>`:qrExpired?`<p class="feature-muted">${e(t('pairExpired'))}</p>`:''}
       ${devices.length?devices.map(d=>`<article class="feature-row"><div><strong>${e(d.name)}</strong><small class="${d.online?'feature-online':''}">${e(t(d.online?'online':'offline'))}</small></div><div class="feature-actions">${buttons('sendFiles','feature-send',t,`data-id="${e(d.id)}" ${view?.enabled?'':'disabled'}`)}${buttons('revoke','feature-revoke',t,`data-id="${e(d.id)}"`)}</div></article>`).join(''):`<p class="feature-muted">${e(t('noPaired'))}</p>`}`;
     if(markup!==phoneMarkup) {phoneMarkup=markup;phone.innerHTML=markup;}
     const panel=document.querySelector('#transfer-panel');
@@ -108,6 +115,7 @@ export function companionUI(native: boolean, t: Translate, toast: (message: stri
   async function poll(report = false) {
     if(polling)return;
     polling=true;
+    const displayedQr=qr;
     try {
       view=await invoke<View>('companion_view');
       if (previous) {
@@ -115,7 +123,7 @@ export function companionUI(native: boolean, t: Translate, toast: (message: stri
         const completed=view.transfers.find(x=>x.phase==='complete'&&!finished.has(x.id));
         if(completed)toast(`${t(completed.to_pc?'receivedFile':'sentFile')}: ${completed.name}`);
       }
-      if(qr&&!view.pairing)qr=null;
+      if(qr===displayedQr&&!view.pairing)qr=null;
       previous=view;
       if(Date.now()-lastChart>12000&&document.querySelector('#usage-chart')) {
         chart=await invoke<Usage[]>('download_usage');
@@ -159,9 +167,27 @@ export function companionUI(native: boolean, t: Translate, toast: (message: stri
       await invoke('companion_enable',{enabled:!view?.enabled});
       qr=null;
       qrExpired=false;
-    } else if(action==='feature-pair-phone'||action==='feature-pair-remote') {
-      qr=await invoke<QR>('companion_pair',{remote:action==='feature-pair-remote'});
+      pairingError='';
+      networkOptions=false;
+    } else if(action==='feature-pair-network') {
+      networkOptions=!networkOptions;
+      pairingError='';
+      if(qr?.bluetooth)qr=null;
+      paintSettings();
+      return;
+    } else if(action==='feature-pair-phone'||action==='feature-pair-remote'||action==='feature-pair-bluetooth') {
+      if(creatingQr)return;
+      const bluetooth=action==='feature-pair-bluetooth';
+      if(bluetooth)networkOptions=false;
+      creatingQr=true;
+      qr=null;
       qrExpired=false;
+      pairingError='';
+      paintSettings();
+      try {
+        qr=await invoke<QR>('companion_pair',{remote:action==='feature-pair-remote',bluetooth});
+      } catch(error) {pairingError=String(error);}
+      finally {creatingQr=false;paintSettings();}
     } else if(action==='feature-revoke') {
       await invoke('companion_revoke',{id});
     } else if(action==='feature-send') {

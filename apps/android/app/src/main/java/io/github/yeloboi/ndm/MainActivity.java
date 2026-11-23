@@ -1,6 +1,9 @@
 package io.github.yeloboi.ndm;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothManager;
 import android.app.*;
 import android.content.*;
 import android.content.pm.PackageInstaller;
@@ -25,6 +28,7 @@ import java.util.*;
 
 public final class MainActivity extends Activity {
     private static final int PICK_FILES=201,PICK_APK=202,INSTALL_PERMISSION=203;
+    private static final int BLUETOOTH_PERMISSION=204,ENABLE_BLUETOOTH=205,SCAN_BLUETOOTH=206,SCAN_NETWORK=207;
     private final Handler main=new Handler(Looper.getMainLooper());
     private CompanionClient client;
     private LinearLayout board,tabs;
@@ -183,9 +187,9 @@ public final class MainActivity extends Activity {
     }
 
     private void pc(){
-        header("Your PC","Control downloads over local Wi-Fi or the same Tailscale network.");
+        header("Your PC","Connect over Bluetooth, local Wi-Fi, or the internet.");
         LinearLayout p=panel();p.addView(strong(client.online?"Connected":client.pc!=null?"Reconnecting":"Pair a PC",16));gap(p,5);
-        p.addView(text(client.pc!=null?(client.online?client.pc.host:client.issue.isEmpty()?"Connecting to "+client.pc.host:client.issue):
+        p.addView(text(client.pc!=null?(client.online?client.pc.routeLabel():client.issue.isEmpty()?"Connecting to "+client.pc.routeLabel():client.issue):
             client.issue.isEmpty()?"In NDM for Windows, open Settings → Your phone, then show the QR code.":client.issue,13,sub));
         if(client.pc==null)actions(p,button("Scan QR code",true,this::scan));
         else {
@@ -227,6 +231,10 @@ public final class MainActivity extends Activity {
     @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] grants){
         super.onRequestPermissionsResult(request,permissions,grants);
         if(request==426&&grants.length>0&&grants[0]==PackageManager.PERMISSION_GRANTED)startWatching();
+        if(request==BLUETOOTH_PERMISSION){
+            if(grants.length>0&&grants[0]==PackageManager.PERMISSION_GRANTED)bluetoothScan();
+            else message("Allow Nearby devices to connect to the PC over Bluetooth.");
+        }
     }
 
     private void files(){
@@ -348,7 +356,25 @@ public final class MainActivity extends Activity {
     }
 
     private void scan(){
-        new IntentIntegrator(this).setDesiredBarcodeFormats(IntentIntegrator.QR_CODE).setPrompt("Scan NDM’s pairing QR code")
+        new AlertDialog.Builder(this).setTitle("Choose how to connect")
+            .setItems(new String[]{"Bluetooth","Wi-Fi / Internet"},(dialog,choice)->{
+                if(choice==0)bluetoothScan();else scanCode(false);
+            }).setNegativeButton("Cancel",null).show();
+    }
+    @SuppressLint("MissingPermission")
+    private void bluetoothScan(){
+        if(Build.VERSION.SDK_INT>=31&&checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)!=PackageManager.PERMISSION_GRANTED){
+            requestPermissions(new String[]{Manifest.permission.BLUETOOTH_CONNECT},BLUETOOTH_PERMISSION);return;
+        }
+        BluetoothManager manager=getSystemService(BluetoothManager.class);
+        BluetoothAdapter adapter=manager==null?null:manager.getAdapter();
+        if(adapter==null){message("Bluetooth is unavailable on this phone.");return;}
+        if(adapter.isEnabled())scanCode(true);
+        else startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE),ENABLE_BLUETOOTH);
+    }
+    private void scanCode(boolean bluetooth){
+        new IntentIntegrator(this).setRequestCode(bluetooth?SCAN_BLUETOOTH:SCAN_NETWORK).setDesiredBarcodeFormats(IntentIntegrator.QR_CODE)
+            .setPrompt(bluetooth?"Scan the Bluetooth QR code in NDM on Windows.":"Scan the Wi-Fi / Internet QR code in NDM on Windows.")
             .setBeepEnabled(false).setOrientationLocked(true).initiateScan();
     }
     private void pick(int request){
@@ -358,8 +384,15 @@ public final class MainActivity extends Activity {
     }
     @Override protected void onActivityResult(int request,int result,Intent data){
         super.onActivityResult(request,result,data);
-        var scan=IntentIntegrator.parseActivityResult(request,result,data);
-        if(scan!=null){if(scan.getContents()!=null)pair(scan.getContents());return;}
+        if(request==ENABLE_BLUETOOTH){
+            if(result==RESULT_OK)scanCode(true);else message("Bluetooth must be on to use this option.");
+            return;
+        }
+        if(request==SCAN_BLUETOOTH||request==SCAN_NETWORK){
+            var scan=IntentIntegrator.parseActivityResult(result,data);
+            if(scan.getContents()!=null)pair(scan.getContents(),request==SCAN_BLUETOOTH);
+            return;
+        }
         if(request==INSTALL_PERMISSION){if(waitingForPermission){waitingForPermission=false;if(getPackageManager().canRequestPackageInstalls())message("Permission enabled. Tap Install to continue.");}return;}
         if(result!=RESULT_OK||data==null)return;
         if(request==PICK_APK&&data.getData()!=null)inspectApk(data.getData());
@@ -368,11 +401,17 @@ public final class MainActivity extends Activity {
             if(!list.isEmpty())confirmShare(list,null);
         }
     }
-    private void pair(String scanned){
+    private void pair(String scanned,boolean bluetooth){
+        try{
+            if(PcLink.isBluetoothQr(scanned)!=bluetooth){
+                message(bluetooth?"Scan the Bluetooth QR code or choose Wi-Fi / Internet.":"Scan the Wi-Fi / Internet QR code or choose Bluetooth.");
+                return;
+            }
+        }catch(Exception error){message("Scan a pairing QR code from NDM on Windows.");return;}
         CheckBox choice=new CheckBox(this);choice.setText("Remember this device");
         EditText name=new EditText(this);name.setSingleLine(true);name.setText(android.os.Build.MODEL);name.setHint("Device name");
         LinearLayout p=panel();p.addView(name);p.addView(choice);
-        new AlertDialog.Builder(this).setTitle("Connect to your PC").setView(p).setNegativeButton("Cancel",null).setPositiveButton("Connect",(d,b)->{
+        new AlertDialog.Builder(this).setTitle(bluetooth?"Connect over Bluetooth":"Connect over Wi-Fi / Internet").setView(p).setNegativeButton("Cancel",null).setPositiveButton("Connect",(d,b)->{
             String label=name.getText().toString().trim();boolean remember=choice.isChecked();
             run(()->{client.pair(scanned,label.isEmpty()?"Android":label,remember);main.post(()->{select(1);message("Paired with PC");if(pendingShare!=null){Intent share=pendingShare;pendingShare=null;handleIntent(share);}});});
         }).show();

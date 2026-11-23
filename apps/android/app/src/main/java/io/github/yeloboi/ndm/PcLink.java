@@ -33,6 +33,7 @@ final class PcLink {
     final String token;
     final SSLSocketFactory factory;
     final List<String> hosts;
+    final BluetoothTransport bluetooth;
 
     private static boolean validHost(String host) {
         if (!host.matches("(?:[0-9]{1,3}\\.){3}[0-9]{1,3}:42672")) return false;
@@ -52,9 +53,13 @@ final class PcLink {
     }
 
     private PcLink(String host, List<String> hosts, String pin, String token) throws Exception {
-        if (!validHost(host) || !pin.matches("[a-f0-9]{64}"))
+        this(host,hosts,pin,token,null);
+    }
+
+    private PcLink(String host,List<String> hosts,String pin,String token,BluetoothTransport bluetooth)throws Exception{
+        if ((bluetooth==null&&!validHost(host)) || !pin.matches("[a-f0-9]{64}"))
             throw new IOException("Invalid NDM pairing address.");
-        this.host = host; this.hosts = hosts; this.pin = pin; this.token = token;
+        this.host = host; this.hosts = hosts; this.pin = pin; this.token = token; this.bluetooth=bluetooth;
         byte[] expected = new byte[32];
         for (int i = 0; i < expected.length; i++) expected[i] = (byte) Integer.parseInt(pin.substring(i * 2, i * 2 + 2), 16);
         SSLContext ssl = SSLContext.getInstance("TLS");
@@ -73,16 +78,26 @@ final class PcLink {
         factory = ssl.getSocketFactory();
     }
 
-    static PcLink pair(String qr, String id, String name, boolean remember) throws Exception {
+    private static JSONObject pairingData(String qr)throws Exception{
         if (qr == null || !qr.startsWith("NDM1:") || qr.length() > 1024) throw new IOException("Scan the QR code from NDM Settings on the PC.");
-        JSONObject data = new JSONObject(qr.substring(5));
+        return new JSONObject(qr.substring(5));
+    }
+
+    static boolean isBluetoothQr(String qr)throws Exception{return pairingData(qr).optBoolean("bluetooth");}
+    String routeLabel(){return bluetooth==null?host:"Bluetooth";}
+    int chunkSize(){return bluetooth==null?CHUNK:64*1024;}
+
+    static PcLink pair(Context context,String qr, String id, String name, boolean remember) throws Exception {
+        JSONObject data = pairingData(qr);
         if (data.getLong("expires") + 15 < System.currentTimeMillis() / 1000) throw new IOException("This code expired. Generate a fresh code on the PC.");
         String host=data.getString("host");
-        PcLink handshake = new PcLink(host,addresses(host,data.optJSONArray("hosts")),data.getString("pin"),"").findRoute();
+        PcLink handshake = data.optBoolean("bluetooth")
+            ? new PcLink(host,Collections.emptyList(),data.getString("pin"),"",new BluetoothTransport(context,host))
+            : new PcLink(host,addresses(host,data.optJSONArray("hosts")),data.getString("pin"),"").findRoute();
         JSONObject payload = new JSONObject().put("code",data.getString("code")).put("name",name).put("id",id).put("remember",remember);
         String token = handshake.object("POST","/pair",payload).getString("token");
         if (!token.matches("[a-f0-9]{64}")) throw new IOException("Invalid pairing response.");
-        return new PcLink(handshake.host,handshake.hosts,handshake.pin,token);
+        return new PcLink(handshake.host,handshake.hosts,handshake.pin,token,handshake.bluetooth);
     }
 
     PcLink at(String address) throws Exception {
@@ -132,11 +147,18 @@ final class PcLink {
     }
 
     byte[] request(String method, String path, byte[] data, String type, int limit) throws Exception {
-        HttpsURLConnection connection=(HttpsURLConnection)new URL("https://"+host+path).openConnection(Proxy.NO_PROXY);
+        return bluetooth==null?exchange(host,method,path,data,type,limit)
+            : bluetooth.exchange(address->exchange(address,method,path,data,type,limit));
+    }
+
+    private byte[] exchange(String address,String method,String path,byte[] data,String type,int limit)throws Exception{
+        HttpsURLConnection connection=(HttpsURLConnection)new URL("https://"+address+path).openConnection(Proxy.NO_PROXY);
         connection.setSSLSocketFactory(factory);
         // The peer's exact QR fingerprint, rather than a DNS hostname, is checked by the trust manager.
-        connection.setHostnameVerifier((hostname, session)->hostname.equals(host.split(":")[0]));
-        connection.setConnectTimeout(3500); connection.setReadTimeout(6000);
+        String ip=address.split(":")[0];
+        connection.setHostnameVerifier((hostname, session)->hostname.equals(ip));
+        connection.setConnectTimeout(3500); connection.setReadTimeout(bluetooth==null?6000:30000);
+        if(bluetooth!=null)connection.setRequestProperty("Connection","close");
         connection.setInstanceFollowRedirects(false); connection.setUseCaches(false); connection.setRequestMethod(method);
         if(!token.isEmpty())connection.setRequestProperty("Authorization","Bearer "+token);
         try {
@@ -175,7 +197,7 @@ final class PcLink {
 
     void save(Context context) throws Exception {
         Cipher cipher=Cipher.getInstance("AES/GCM/NoPadding");cipher.init(Cipher.ENCRYPT_MODE,localKey());
-        byte[] encrypted=cipher.doFinal(new JSONObject().put("host",host).put("hosts",new JSONArray(hosts)).put("pin",pin).put("token",token).toString().getBytes(StandardCharsets.UTF_8));
+        byte[] encrypted=cipher.doFinal(new JSONObject().put("host",host).put("hosts",new JSONArray(hosts)).put("bluetooth",bluetooth!=null).put("pin",pin).put("token",token).toString().getBytes(StandardCharsets.UTF_8));
         if(!prefs(context).edit().putString("record",Base64.encodeToString(cipher.getIV(),Base64.NO_WRAP)+":"+Base64.encodeToString(encrypted,Base64.NO_WRAP)).commit())
             throw new IOException("Could not remember the paired PC.");
     }
@@ -189,7 +211,9 @@ final class PcLink {
             cipher.init(Cipher.DECRYPT_MODE,localKey(),new GCMParameterSpec(128,Base64.decode(fields[0],Base64.NO_WRAP)));
             JSONObject value=new JSONObject(new String(cipher.doFinal(Base64.decode(fields[1],Base64.NO_WRAP)),StandardCharsets.UTF_8));
             String host=value.getString("host");
-            return new PcLink(host,addresses(host,value.optJSONArray("hosts")),value.getString("pin"),value.getString("token"));
+            return value.optBoolean("bluetooth")
+                ? new PcLink(host,Collections.emptyList(),value.getString("pin"),value.getString("token"),new BluetoothTransport(context,host))
+                : new PcLink(host,addresses(host,value.optJSONArray("hosts")),value.getString("pin"),value.getString("token"));
         } catch(Exception error) { forget(context);return null; }
     }
 

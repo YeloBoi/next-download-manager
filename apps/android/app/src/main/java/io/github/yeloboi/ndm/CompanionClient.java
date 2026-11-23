@@ -69,7 +69,7 @@ final class CompanionClient {
     }
     void pair(String qr,String label,boolean remember) throws Exception {
         PcLink paired;
-        try{paired=PcLink.pair(qr,id,label.length()>64?label.substring(0,64):label,remember);}
+        try{paired=PcLink.pair(context,qr,id,label.length()>64?label.substring(0,64):label,remember);}
         catch(Exception error){
             if(pc==null)issue=error instanceof javax.net.ssl.SSLException?"PC identity could not be verified. Scan a fresh QR code.":error.getMessage();
             throw new IOException(pc==null?issue:error.getMessage(),error);
@@ -145,8 +145,8 @@ final class CompanionClient {
             if(error instanceof PcLink.HttpFailure&&((PcLink.HttpFailure)error).code==401){
                 PcLink.forget(context);pc=null;downloads=new JSONArray();transfers=new JSONArray();usage=new JSONArray();issue="Access ended. Pair again on the PC.";
             } else {
-                issue="PC unavailable. Keep NDM open and check Windows Firewall, Wi-Fi or Tailscale.";
-                discover(link);
+                issue=link.bluetooth!=null&&error.getMessage()!=null?error.getMessage():"PC unavailable. Keep NDM open and check the selected connection.";
+                if(link.bluetooth==null)discover(link);
             }
             online=false;
         }
@@ -276,7 +276,7 @@ final class CompanionClient {
                     if(!file.isFile()||file.length()!=total)throw new IOException("Staged file is no longer available.");
                     try(RandomAccessFile source=new RandomAccessFile(file,"r")){
                         for(int chunk=0;chunk<12&&!canceled.contains(id)&&pc==link;chunk++){
-                            byte[] data=new byte[(int)Math.min(PcLink.CHUNK,total-pos)];
+                            byte[] data=new byte[(int)Math.min(link.chunkSize(),total-pos)];
                             source.seek(pos);source.readFully(data);
                             byte[] ack=link.request("POST","/transfer/"+id+"/chunk?offset="+pos,data,"application/octet-stream",8192);
                             p=new JSONObject(new String(ack,StandardCharsets.UTF_8));

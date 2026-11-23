@@ -24,7 +24,8 @@ public final class AndroidSmoke extends Instrumentation {
             awaitText("Downloads");
             String qr=new String(Base64.decode(options.getString("ndm_qr"),Base64.DEFAULT), StandardCharsets.UTF_8);
             JSONObject value=new JSONObject(qr.substring(5));
-            PcLink link=PcLink.pair(qr,"be1c1a37-a1bd-48bb-8c0a-9d474edcbe65","Emulator",true);
+            require(!PcLink.isBluetoothQr(qr),"Network QR was mistaken for Bluetooth");
+            PcLink link=PcLink.pair(app,qr,"be1c1a37-a1bd-48bb-8c0a-9d474edcbe65","Emulator",true);
             require(link.host.equals("127.0.0.1:42672"),"Pairing did not fall back to the reachable address");
             link.save(app);
             PcLink remembered=PcLink.load(app);
@@ -39,7 +40,7 @@ public final class AndroidSmoke extends Instrumentation {
             catch(java.io.IOException expected){}
             try{
                 value.put("pin","0000000000000000000000000000000000000000000000000000000000000000");
-                PcLink.pair("NDM1:"+value,"be1c1a37-a1bd-48bb-8c0a-9d474edcbe65","Untrusted",true);
+                PcLink.pair(app,"NDM1:"+value,"be1c1a37-a1bd-48bb-8c0a-9d474edcbe65","Untrusted",true);
                 throw new AssertionError("Untrusted TLS identity was accepted");
             }catch(javax.net.ssl.SSLException expected){}
             File directory=new File(app.getFilesDir(),"received/smoke");

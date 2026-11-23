@@ -72,7 +72,7 @@ try {
         if(command==='preview_download')return {name:'Test archive.zip',total:10240,resumable:true,directory:'C:\\Downloads\\Archives'};
         if(command==='check_update')return {version:'0.2.0',notes:'A new build',installable:true,portable:false};
         if(command==='companion_view')return {enabled:true,pairing:true,devices:[{id:'demo',name:'Android phone',online:true}],transfers:[]};
-        if(command==='companion_pair')return {path:'M4 4h1v1z',size:20,host:'192.168.1.12:42672',expires:Math.floor(Date.now()/1000)+120};
+        if(command==='companion_pair')return {path:'M4 4h1v1z',size:20,host:args.bluetooth?'00:11:22:33:44:55':'192.168.1.12:42672',expires:Math.floor(Date.now()/1000)+120,bluetooth:args.bluetooth};
         if(command==='download_usage')return [{device:'pc',hour:Math.floor(Date.now()/3600000),bytes:1024,category:'archives'},{device:'mobile',hour:Math.floor(Date.now()/3600000),bytes:2048,category:'images'}];
         if(command==='plugin:event|listen')return 1;
         if(command==='plugin:window|is_maximized')return false;
@@ -102,6 +102,10 @@ try {
   assert.equal(await desktop.locator('#browser-connection').innerText(),'','Connected card content is removed');
   await desktop.locator('[data-action="settings"]').click();
   await desktop.getByText('Android phone',{exact:true}).waitFor();
+  await desktop.getByRole('button',{name:'Bluetooth',exact:true}).click();
+  await desktop.getByRole('img',{name:'Bluetooth',exact:true}).waitFor();
+  await desktop.getByRole('button',{name:'Wi-Fi / Internet',exact:true}).click();
+  await desktop.getByRole('img',{name:'Bluetooth',exact:true}).waitFor({state:'hidden'});
   await desktop.getByRole('button',{name:'Show pairing QR',exact:true}).click();
   await desktop.getByRole('img',{name:'Show pairing QR'}).waitFor();
   await desktop.locator('.usage-summary strong').filter({hasText:'3.0 KiB'}).waitFor();

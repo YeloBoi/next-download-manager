@@ -1,9 +1,9 @@
 #[allow(dead_code)]
 #[path = "../../../tests/fixtures/http.rs"]
 mod support;
+use chrono::{Local, Timelike};
 use ndm_core::{Settings, Snapshot, Status};
 use ndm_queue::{Action, Manager};
-use chrono::{Local, Timelike};
 use std::time::Duration;
 
 async fn wait(manager: &Manager, predicate: impl Fn(&Snapshot) -> bool) -> Snapshot {

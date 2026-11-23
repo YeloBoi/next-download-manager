@@ -401,10 +401,18 @@ impl Actor {
                     if start {
                         self.manual_starts.insert(id.clone());
                     }
-                    let suffix = url.split(['?', '#']).next().unwrap_or(&url)
-                        .rsplit('/').next().unwrap_or_default();
+                    let suffix = url
+                        .split(['?', '#'])
+                        .next()
+                        .unwrap_or(&url)
+                        .rsplit('/')
+                        .next()
+                        .unwrap_or_default();
                     let target = directory.clone().unwrap_or_else(|| {
-                        ndm_core::suggested_directory(&self.snapshot.settings.directory, name.as_deref().unwrap_or(suffix))
+                        ndm_core::suggested_directory(
+                            &self.snapshot.settings.directory,
+                            name.as_deref().unwrap_or(suffix),
+                        )
                     });
                     self.snapshot.downloads.push(Download {
                         id,
@@ -431,7 +439,9 @@ impl Actor {
                     // Manual downloads take the next free slot, ahead of queue-only entries.
                     let next = self.snapshot.downloads[..first_new]
                         .iter()
-                        .position(|job| job.status == Status::Queued && !self.manual_starts.contains(&job.id))
+                        .position(|job| {
+                            job.status == Status::Queued && !self.manual_starts.contains(&job.id)
+                        })
                         .unwrap_or(first_new);
                     let added = self.snapshot.downloads.len() - first_new;
                     self.snapshot.downloads[next..].rotate_right(added);

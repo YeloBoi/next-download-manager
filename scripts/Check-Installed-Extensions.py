@@ -46,7 +46,6 @@ class Files(BaseHTTPRequestHandler):
 def browser_session(name, chromium, firefox, log):
     if name == 'Firefox':
         options = webdriver.FirefoxOptions()
-        options.add_argument('-headless')
         options.add_argument('--allow-system-access')
         driver = webdriver.Firefox(options=options, service=FirefoxService(
             str(Path(os.environ['GECKOWEBDRIVER']) / 'geckodriver.exe')))

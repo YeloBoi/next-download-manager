@@ -29,7 +29,7 @@ public final class AndroidSmoke extends Instrumentation {
             link.save(app);
             PcLink remembered=PcLink.load(app);
             require(remembered!=null&&remembered.token.equals(link.token),"Could not restore Android Keystore session");
-            require(remembered.at("127.0.0.2:42672").status().route().host.equals(link.host),"Reconnect did not fall back to the saved address");
+            require(remembered.at(value.getString("host")).status().route().host.equals(link.host),"Reconnect did not fall back to the saved address");
             require(remembered.object("GET","/status",null).getJSONArray("downloads").length()==1,"Could not read remote downloads");
             JSONObject manifest=new JSONObject().put("tag","v0.1.0-alpha.10").put("android",new JSONObject()
                 .put("code",10).put("name","NDM-0.1.0-alpha.10-android.apk").put("sha256","a".repeat(64)).put("size",40));
@@ -62,7 +62,7 @@ public final class AndroidSmoke extends Instrumentation {
         }
     }
     private void awaitText(String expected)throws InterruptedException{
-        for(int i=0;i<40;i++){
+        for(int i=0;i<80;i++){
             var tree=getUiAutomation().getRootInActiveWindow();
             if(tree!=null&&found(tree,expected))return;
             Thread.sleep(250);

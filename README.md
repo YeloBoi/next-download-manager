@@ -2,7 +2,7 @@
 
 ![NDM logo](apps/desktop/public/brand/wordmark-color.png)
 
-Windows 10/11 x64 direct-download manager with an Android companion (Android 8+). Development alpha.
+Direct-download manager for Windows 10/11 x64 and macOS 12 or later (Apple Silicon and Intel), with an Android 8+ companion. Development alpha.
 The Rust engine and SQLite queue are separate from the Tauri 2 / TypeScript UI.
 English is the default; Persian changes the layout to RTL and uses Vazirmatn.
 The successful hosted build and downloadable artifacts are recorded in
@@ -12,14 +12,15 @@ The successful hosted build and downloadable artifacts are recorded in
 
 Download the [latest release](https://github.com/YeloBoi/next-download-manager/releases/latest)
 from **Releases → Assets**. For installation, choose
-the Windows x64 `*-setup.exe` installer or `*-android.apk` for Android. The portable ZIP, Chromium and Firefox extensions,
-SHA256SUMS and release notes are separate assets.
+the Windows x64 `*-setup.exe` installer, the macOS DMG for your chip when available, or
+`*-android.apk` for Android. The Windows portable ZIP, browser extensions, checksums
+and release notes are separate assets.
 
 All dependency installation, Rust compilation, tests and packaging run in
-**GitHub Actions → Windows checks and build**. No local build is required.
+**GitHub Actions → Desktop checks and build**. No local build is required.
 After a successful run, choose only the artifact you need: `ndm-installer-windows-x64`,
 `ndm-portable-windows-x64`, `ndm-chromium-extension`, `ndm-firefox-extension` or `ndm-checksums-and-notes`.
-Installer and portable downloads are separated to avoid downloading both binaries.
+The macOS CI artifacts are `ndm-macos-arm64` and `ndm-macos-x64`. Tagged releases attach macOS DMGs after Developer ID signing and notarization.
 Unsigned alpha binaries may trigger Windows reputation warnings; no code-signing
 certificate is configured. Keep Windows security protections enabled.
 
@@ -27,6 +28,11 @@ Extract the portable ZIP and run `ndm.exe`, or run the per-user installer.
 Microsoft Edge WebView2 Runtime is required; the installer can fetch it if missing.
 Portable means the executables are carried together; settings and partial files
 still live in `%LOCALAPPDATA%\NDM`, not beside the executable.
+
+On macOS, mount the DMG, drag **NDM** to **Applications**, then open it from there
+once to register Chrome, Edge and Firefox. The queue and settings live in
+`~/Library/Application Support/NDM`. Self-built and CI-only DMGs are for testing.
+See [macOS build and release instructions](docs/MACOS.md).
 
 ## Use
 
@@ -48,7 +54,7 @@ Downloaded programs are never run automatically.
 
 In **Settings → Your phone**, enable the LAN connection and show a one-time QR.
 Open **PC → Scan QR code** in NDM on Android, with both devices on the same network.
-Allow NDM through Windows Firewall on private networks if prompted. Use **PC** for remote
+Allow NDM through Windows Firewall on private networks or allow macOS local network access if prompted. Bluetooth and Tailscale pairing use Windows integrations. Use **PC** for remote
 control and **Files** to accept and send files. Android’s share menu also has **Share to PC**
 for links and files. The PC saves received files under **NDM Shared** in the configured
 downloads destination. Use **Watch in background** on Android for completion notifications
@@ -56,22 +62,22 @@ while the app is not on screen.
 
 **Download usage** compares completed PC and phone internet downloads. It keeps local
 file transfers out of these totals and starts collecting statistics with this version.
-The Windows update banner checks GitHub for a newer release. Portable users replace
-their archive from Releases; installed copies can download a verified installer directly.
+The update banner checks GitHub for a newer release. macOS and Windows portable users download a new package from Releases. Installed Windows copies can download a verified installer directly.
 See the [Persian companion guide](docs/COMPANION.fa.md).
 
 ## Browser extension
 
 See [extension setup](docs/EXTENSION.md). Load `chromium.zip` unpacked in Chrome
-or Edge, or load `firefox.zip` as a temporary add-on in Firefox. The installer
-or the first launch of portable NDM registers the connection automatically for
-all three. Only links you select and send are shared with NDM.
+or Edge, or load `firefox.zip` as a temporary add-on in Firefox. Open NDM once
+to register its native host. Only links you choose to send are shared with NDM.
+[Store submission instructions](docs/EXTENSION_STORES.md) cover the separate
+Chrome Web Store and Firefox Add-ons packages.
 
 [راهنمای فارسی نصب و اتصال افزونه](docs/EXTENSION.fa.md)
 
 ## Development (optional, not run on the owner's computer)
 
-Requires stable Rust with MSVC, Visual Studio C++ Build Tools and Windows SDK,
+On Windows, requires stable Rust with MSVC, Visual Studio C++ Build Tools and Windows SDK,
 Node 24, and WebView2. CI installs these on a hosted Windows runner.
 
 ```powershell
@@ -85,7 +91,7 @@ cargo test --workspace --locked
 npm run desktop
 ```
 
-`scripts/Build-Artifacts.ps1` builds packages on a Windows runner. Rust and npm
+`scripts/Build-Artifacts.ps1` builds Windows packages. On macOS, use `bash scripts/Build-Mac.sh` after `npm ci --include=optional`. Rust and npm
 lockfiles are committed. `npm run dev` is a UI preview only; it does not simulate
 downloads or insert sample files. No screenshots are claimed until the real
 desktop app has been exercised and captured.

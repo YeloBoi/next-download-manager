@@ -1,4 +1,4 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 use ndm_core::{Settings, Snapshot, Status};
 use ndm_queue::{Action, Manager};
@@ -35,11 +35,15 @@ fn browser_connection(
 }
 
 fn setup_browser_hosts() -> Result<(), String> {
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos"))]
     ndm_browser_bridge::register_hosts(
         &std::env::current_exe()
             .map_err(|e| e.to_string())?
-            .with_file_name("ndm-native-host.exe"),
+            .with_file_name(if cfg!(windows) {
+                "ndm-native-host.exe"
+            } else {
+                "ndm-native-host"
+            }),
         None,
     )?;
     Ok(())
@@ -170,11 +174,7 @@ fn main() {
     }
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.unminimize();
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
+            focus_main_window(app);
         }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -202,8 +202,7 @@ fn main() {
             let data = dirs::data_local_dir()
                 .ok_or("Cannot locate application data.")?
                 .join("NDM");
-            let downloads =
-                dirs::download_dir().ok_or("Cannot locate the Windows Downloads folder.")?;
+            let downloads = dirs::download_dir().ok_or("Cannot locate the Downloads folder.")?;
             let manager = tauri::async_runtime::block_on(Manager::open(
                 data.clone(),
                 Settings::new(downloads),
@@ -251,12 +250,7 @@ fn main() {
                 tray = tray.icon(icon.clone());
             }
             tray.on_menu_event(|app, event| match event.id.as_ref() {
-                "show" => {
-                    if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                    }
-                }
+                "show" => focus_main_window(app),
                 "start" | "pause" => {
                     let manager = app.state::<Manager>().inner().clone();
                     let action = if event.id.as_ref() == "start" {
@@ -286,11 +280,26 @@ fn main() {
         })
         .build(tauri::generate_context!());
     match result {
-        Ok(app) => app.run(|_, _| {}),
+        Ok(app) => app.run(|app, event| {
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event {
+                focus_main_window(app);
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = (app, event);
+        }),
         Err(error) => {
             eprintln!("NDM could not start: {error}");
             std::process::exit(1);
         }
+    }
+}
+
+fn focus_main_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
     }
 }
 

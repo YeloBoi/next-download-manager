@@ -108,6 +108,18 @@ pub async fn check_update() -> Result<Option<UpdateInfo>, String> {
     let Some((version, release)) = latest(&client()?).await? else {
         return Ok(None);
     };
+    #[cfg(target_os = "macos")]
+    {
+        let arch = if cfg!(target_arch = "aarch64") {
+            "arm64"
+        } else {
+            "x64"
+        };
+        let name = format!("NDM-{version}-macos-{arch}.dmg");
+        if !release.assets.iter().any(|asset| asset.name == name) {
+            return Ok(None);
+        }
+    }
     let portable = !installed();
     Ok(Some(UpdateInfo {
         version: version.to_string(),
@@ -147,7 +159,7 @@ pub async fn install_update(
         }
     }
     if !installed() {
-        return Err("Use the portable archive from GitHub Releases.".into());
+        return Err("Download the latest package for your platform from GitHub Releases.".into());
     }
     if BUSY.swap(true, Ordering::AcqRel) {
         return Err("An update is already downloading.".into());

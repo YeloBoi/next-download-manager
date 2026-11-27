@@ -17,16 +17,18 @@ from selenium.webdriver.support.ui import Select, WebDriverWait
 
 with tempfile.TemporaryDirectory() as temporary:
     root = pathlib.Path(temporary)
-    source = root / 'firefox'
-    shutil.copytree('extensions/chromium', source)
-    shutil.copyfile('extensions/firefox/manifest.json', source / 'manifest.json')
-    # Mozilla also warns about Android minimum versions; NDM targets Windows desktop.
-    subprocess.run(['npx', '--yes', 'web-ext@9', 'lint', '--self-hosted', '--source-dir', str(source)], check=True)
-    archive = root / 'ndm.zip'
-    with zipfile.ZipFile(archive, 'w') as output:
-        for path in source.rglob('*'):
-            if path.is_file():
-                output.write(path, path.relative_to(source))
+    if len(sys.argv) > 1:
+        archive = pathlib.Path(sys.argv[1]).resolve(strict=True)
+    else:
+        source = root / 'firefox'
+        shutil.copytree('extensions/chromium', source)
+        shutil.copyfile('extensions/firefox/manifest.json', source / 'manifest.json')
+        subprocess.run(['npx', '--yes', 'web-ext@9', 'lint', '--self-hosted', '--source-dir', str(source)], check=True)
+        archive = root / 'ndm.zip'
+        with zipfile.ZipFile(archive, 'w') as output:
+            for path in source.rglob('*'):
+                if path.is_file():
+                    output.write(path, path.relative_to(source))
     options = Options()
     options.binary_location = shutil.which('firefox')
     options.add_argument('-headless')

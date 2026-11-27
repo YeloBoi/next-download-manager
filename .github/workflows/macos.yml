@@ -1,0 +1,84 @@
+name: macOS desktop
+on:
+  workflow_call:
+    inputs:
+      release:
+        type: boolean
+        default: false
+    outputs:
+      signed:
+        value: ${{ jobs.desktop.outputs.signed }}
+    secrets:
+      APPLE_CERTIFICATE:
+        required: false
+      APPLE_CERTIFICATE_PASSWORD:
+        required: false
+      APPLE_SIGNING_IDENTITY:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            architecture: arm64
+            target: aarch64-apple-darwin
+          - runner: macos-15-intel
+            architecture: x64
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 50
+    outputs:
+      signed: ${{ steps.bundle.outputs.signed }}
+    env:
+      NDM_CHROME_STORE_ID: ${{ vars.NDM_CHROME_STORE_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - run: npm ci --include=optional
+      - run: cargo fmt --all --check
+      - name: Build the macOS app and DMG
+        id: bundle
+        env:
+          APPLE_CERTIFICATE: ${{ inputs.release && secrets.APPLE_CERTIFICATE || '' }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ inputs.release && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+          APPLE_SIGNING_IDENTITY: ${{ inputs.release && secrets.APPLE_SIGNING_IDENTITY || '' }}
+          APPLE_ID: ${{ inputs.release && secrets.APPLE_ID || '' }}
+          APPLE_PASSWORD: ${{ inputs.release && secrets.APPLE_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ inputs.release && secrets.APPLE_TEAM_ID || '' }}
+        run: |
+          if [[ -z "$APPLE_SIGNING_IDENTITY" ]]; then
+            unset APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID
+          fi
+          bash scripts/Build-Mac.sh
+          if [[ -n "${APPLE_SIGNING_IDENTITY:-}" ]]; then
+            echo 'signed=true' >> "$GITHUB_OUTPUT"
+          fi
+      - run: cargo test --locked --workspace --target "${{ matrix.target }}"
+      - name: Verify native messaging and cold launch
+        run: python3 scripts/Check-MacBridge.py "target/${{ matrix.target }}/release/bundle/macos/NDM.app"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.bundle.outputs.signed == 'true' && 'ndm-macos-signed' || 'ndm-macos' }}-${{ matrix.architecture }}
+          path: .artifacts/*-macos-*.dmg
+          include-hidden-files: true
+          if-no-files-found: error

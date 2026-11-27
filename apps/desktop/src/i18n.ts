@@ -35,7 +35,7 @@ const en = {
   sendFiles:'Send files', noPaired:'No devices paired yet.', filesShared:'File share', transferHint:'Received files are saved under NDM Shared in your Downloads destination.', noTransfers:'No local transfers yet.', incoming:'From phone', outgoing:'To phone', waitingPhone:'Waiting for phone', retry:'Retry', clear:'Clear', receivedFile:'File received', sentFile:'File sent',
   usage:'Download usage', usageHint:'Completed internet downloads only. Local file sharing is counted separately.', usageTotal:'Total downloaded', usagePc:'PC', usagePhone:'Mobile', last24:'Last 24 hours', last7:'Last 7 days', last30:'Last 30 days', allTypes:'All file types',
   video:'Video', audio:'Audio', images:'Images', apps:'Apps', games:'Games', archives:'Archives', documents:'Documents', other:'Other', noUsage:'No completed downloads in this period.',
-  updateLabel:'NDM update available', update:'Update', later:'Later', whatsNew:"What's New", applyingUpdate:'Opening the Windows installer…', getUpdate:'Open Releases', updatePortable:'Download the new portable archive from Releases.', checkUpdates:'Check for updates', checkUpdatesNone:'You’re on the latest available version.', checkUpdatesError:'Could not check for updates.',
+  updateLabel:'NDM update available', update:'Update', later:'Later', whatsNew:"What's New", applyingUpdate:'Opening the Windows installer…', getUpdate:'Open Releases', updatePortable:'Download the latest package for your platform from Releases.', checkUpdates:'Check for updates', checkUpdatesNone:'You’re on the latest available version.', checkUpdatesError:'Could not check for updates.',
 } as const;
 type Key = keyof typeof en;
 const fa: Record<Key,string> = {
@@ -75,7 +75,7 @@ const fa: Record<Key,string> = {
   sendFiles:'ارسال فایل‌ها', noPaired:'هنوز دستگاهی متصل نشده است.', filesShared:'اشتراک فایل', transferHint:'فایل‌های دریافتی در پوشهٔ NDM Shared داخل مسیر دانلود ذخیره می‌شوند.', noTransfers:'هنوز انتقال محلی ندارید.', incoming:'از گوشی', outgoing:'به گوشی', waitingPhone:'در انتظار گوشی', retry:'تلاش دوباره', clear:'پاک‌کردن', receivedFile:'فایل دریافت شد', sentFile:'فایل ارسال شد',
   usage:'حجم دانلود', usageHint:'فقط دانلودهای اینترنتی تکمیل‌شده. اشتراک فایل محلی جداست.', usageTotal:'حجم کل دانلود', usagePc:'کامپیوتر', usagePhone:'گوشی', last24:'۲۴ ساعت اخیر', last7:'۷ روز اخیر', last30:'۳۰ روز اخیر', allTypes:'همهٔ فایل‌ها',
   video:'ویدیو', audio:'صدا', images:'تصویر', apps:'برنامه', games:'بازی', archives:'آرشیو', documents:'اسناد', other:'سایر', noUsage:'در این بازه دانلود تکمیل‌شده‌ای ثبت نشده است.',
-  updateLabel:'آپدیت NDM آماده است', update:'به‌روزرسانی', later:'بعداً', whatsNew:'تغییرات نسخه', applyingUpdate:'در حال بازکردن نصب‌کنندهٔ ویندوز…', getUpdate:'بازکردن Releases', updatePortable:'نسخهٔ پرتابل جدید را از Releases بگیرید.', checkUpdates:'بررسی آپدیت', checkUpdatesNone:'آخرین نسخهٔ موجود را دارید.', checkUpdatesError:'بررسی آپدیت ممکن نبود.',
+  updateLabel:'آپدیت NDM آماده است', update:'به‌روزرسانی', later:'بعداً', whatsNew:'تغییرات نسخه', applyingUpdate:'در حال بازکردن نصب‌کنندهٔ ویندوز…', getUpdate:'بازکردن Releases', updatePortable:'بستهٔ جدید سیستم‌عامل خود را از Releases بگیرید.', checkUpdates:'بررسی آپدیت', checkUpdatesNone:'آخرین نسخهٔ موجود را دارید.', checkUpdatesError:'بررسی آپدیت ممکن نبود.',
 };
 export const messages = { en, fa };
 export function translator(language: string) { return (key: Key): string => (language === 'fa' ? fa : en)[key]; }

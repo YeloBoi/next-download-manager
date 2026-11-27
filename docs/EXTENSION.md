@@ -1,11 +1,12 @@
-﻿# Connect NDM to Chrome, Edge, or Firefox
+# Connect NDM to Chrome, Edge, or Firefox
 
 [راهنمای فارسی](EXTENSION.fa.md) · [Latest release](https://github.com/YeloBoi/next-download-manager/releases/latest)
 
-Update both NDM and the browser extension from the same release. The Windows
-installer registers the native host for your current user. If you use the portable
-ZIP, open ndm.exe once; it registers the companion ndm-native-host.exe in the same
-folder. **Check connection** in NDM repairs that registration.
+Install the current NDM desktop app and open it once. The Windows installer
+registers the native host for your current user. For the Windows portable ZIP,
+open `ndm.exe` with `ndm-native-host.exe` beside it. On macOS, drag `NDM.app`
+to Applications and open it there. **Check connection** in NDM repairs native
+host registration.
 
 ## Chrome and Edge
 
@@ -18,7 +19,10 @@ folder. **Check connection** in NDM repairs that registration.
 
 The extension popup links to newer versions. To update an unpacked install,
 extract the new ZIP into the same folder, then click **Reload** on the extension
-card. The extension is not currently published in Chrome Web Store or Edge Add-ons.
+card. When the Chrome Web Store listing is available, install from the store
+for automatic updates. A store copy has a different ID from the unpacked ZIP.
+Disable the unpacked copy after switching. If the store copy stays offline,
+check the registration steps below.
 
 ## Firefox 140 or later
 
@@ -27,7 +31,9 @@ choose **firefox.zip** from the release (or its extracted manifest.json). Reload
 it after restarting Firefox. If a Mozilla-signed **firefox.xpi** is available
 in a release, install it once for permanent installation and automatic updates.
 The ZIP is temporary. The extension uses Firefox background scripts rather than the
-Chromium service worker and has the fixed ID `ndm@yeloboi.github.io`.
+Chromium service worker and has the fixed ID `ndm@yeloboi.github.io`. When the
+listed Firefox Add-ons version is available, install it from Firefox Add-ons
+for automatic updates.
 
 ## Download a file
 
@@ -46,7 +52,19 @@ The desktop card disappears while connected and returns after the last browser
 heartbeat expires. The popup can close when focus moves to NDM; the background
 keeps the connection and stored selection.
 
-For custom Chrome/Edge builds only, use `ndm-native-host.exe --register <extension-id>`
-from the application folder. This preserves the official ID and previously
-registered IDs. Uninstalling or running `Unregister-NativeHost.ps1` removes the
-registration owned by that NDM copy; download and queue data remain.
+## Register a Chrome Web Store or custom Chromium ID
+
+The GitHub ZIP's ID and Firefox ID are built in. If your desktop build predates
+store registration, copy the 32-character ID from `chrome://extensions` with
+Developer mode enabled. Run the command for your platform, substituting that
+ID, then reload the browser extension.
+
+- Windows PowerShell, from the NDM application folder:
+  `.\ndm-native-host.exe --register <extension-id>`
+- macOS Terminal:
+  `/Applications/NDM.app/Contents/MacOS/ndm-native-host --register <extension-id>`
+
+Use the exact ID for the extension installed in your browser. If you remove
+NDM manually, run the same native host with `--unregister` before removing
+the application. This clears the registrations owned by that copy while
+preserving the download queue and files.

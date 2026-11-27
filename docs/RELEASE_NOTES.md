@@ -1,3 +1,9 @@
+# NDM 0.1.0-alpha.14 — macOS build support and queue fixes
+
+- Add Apple Silicon and Intel macOS builds with a bundled browser connection for Chrome, Edge, and Firefox. Public macOS DMGs are included when Apple signing and notarization are configured.
+- Publish queue state immediately when a paused download resumes so the interface shows the active transfer promptly.
+- Keep the GitHub extension ZIPs and their update feed available for direct installation. Extension version 0.1.9 ships with this release.
+
 # NDM 0.1.0-alpha.13 — Bluetooth or Wi-Fi / Internet
 
 - Choose **Bluetooth** in Windows Settings → Your phone, and in Android under PC → Scan QR code. NDM requests Bluetooth if it is off. Scan the new QR code and confirm Bluetooth pairing if the OS asks. No internet or Wi-Fi is required.

@@ -389,7 +389,7 @@ impl Companion {
             serde_json::json!({"id":d.id,"name":d.name,"remember":d.expires.is_none(),"online":state.online.get(&d.id).is_some_and(|t| now().saturating_sub(*t)<ONLINE_SECONDS)})
         ).collect::<Vec<_>>();
         serde_json::json!({"enabled":state.server.is_some(),"devices":devices,
-            "pairing":state.pair.is_some(),
+            "pairing":state.pair.is_some(), "windows_pairing":cfg!(windows),
             "transfers":state.saved.transfers.iter().rev().map(Transfer::public).collect::<Vec<_>>()})
     }
     async fn revoke(&self, id: Uuid) -> Result<()> {

@@ -21,3 +21,5 @@
 .env
 .env.*
 !.env.example
+
+/apps/desktop/src-tauri/binaries/

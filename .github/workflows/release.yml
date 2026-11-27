@@ -18,8 +18,21 @@ jobs:
     secrets:
       AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
       AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+  macos:
+    uses: ./.github/workflows/macos.yml
+    with:
+      release: true
+    secrets:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
   verify-and-build:
     runs-on: windows-2022
+    env:
+      NDM_CHROME_STORE_ID: ${{ vars.NDM_CHROME_STORE_ID }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -75,7 +88,7 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
   publish:
-    needs: [verify-and-build, firefox, android]
+    needs: [verify-and-build, firefox, android, macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -96,6 +109,12 @@ jobs:
         if: needs.firefox.outputs.signed == 'true'
         with:
           name: ndm-firefox-signed
+          path: release-files
+      - uses: actions/download-artifact@v4
+        if: needs.macos.outputs.signed == 'true'
+        with:
+          pattern: ndm-macos-signed-*
+          merge-multiple: true
           path: release-files
       - run: node scripts/Release-UpdateFeeds.mjs "$GITHUB_REF_NAME" release-files
       - name: Publish latest release

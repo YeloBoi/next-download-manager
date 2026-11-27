@@ -9,9 +9,11 @@ pub const FIREFOX_MANIFEST: &str = "local.ndm.bridge.firefox.json";
 pub const CHROMIUM_MANIFEST: &str = "local.ndm.bridge.json";
 pub const CHROMIUM_ORIGIN: &str = "chrome-extension://llccemgchkhblimpddegikfekglcjoen/";
 
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "macos"))]
 mod registration;
-#[cfg(windows)]
+#[cfg(target_os = "macos")]
+pub use registration::mac_firefox_manifest;
+#[cfg(any(windows, target_os = "macos"))]
 pub use registration::{register_hosts, unregister_hosts};
 
 #[derive(Clone, Default)]
@@ -114,7 +116,7 @@ pub fn bridge_directory() -> Result<std::path::PathBuf, String> {
         .ok_or_else(|| "Cannot find local application data.".into())
 }
 
-// Local spool files are scoped to the current Windows user's application-data directory.
+// Local spool files are scoped to the current user's application-data directory.
 // A browser acknowledgement is written only after the queue's SQLite transaction commits.
 pub async fn serve(manager: ndm_queue::Manager, connection: ConnectionState) -> Result<(), String> {
     let directory = bridge_directory()?;

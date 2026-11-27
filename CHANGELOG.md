@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-alpha.14
+
+- Add Apple Silicon and Intel macOS builds with a bundled browser connection for Chrome, Edge, and Firefox. Public macOS DMGs are included when Apple signing and notarization are configured.
+- Publish queue state immediately when a paused download resumes so the interface shows the active transfer promptly.
+- Keep the GitHub extension ZIPs and their update feed available for direct installation. Extension version 0.1.9 ships with this release.
+
 ## 0.1.0-alpha.13
 
 - Add Bluetooth pairing for Android and Windows without an internet connection, alongside Wi-Fi / Internet pairing.

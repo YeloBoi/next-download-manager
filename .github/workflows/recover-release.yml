@@ -35,9 +35,16 @@ jobs:
           gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN" |
             jq -e --arg sha "$sha" --arg tag "$RELEASE_TAG" '.head_sha == $sha and .head_branch == $tag and .path == ".github/workflows/release.yml" and .event == "push" and .conclusion == "failure"'
           gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN/jobs" |
-            jq -e '([.jobs[] | select(.conclusion == "success") | .name] | sort) == ["android / android","firefox / firefox","verify-and-build"] and any(.jobs[]; .name == "publish" and .conclusion == "failure")'
+            jq -e '([.jobs[] | select(.conclusion == "success") | .name] | contains(["android / android","firefox / firefox","verify-and-build"])) and all(.jobs[] | select(.name != "publish"); .conclusion == "success") and any(.jobs[]; .name == "publish" and .conclusion == "failure")'
           git worktree add --detach built-source "$sha"
-          echo "signed=$(gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN/artifacts" --jq 'any(.artifacts[]; .name == "ndm-firefox-signed" and (.expired | not))')" >> "$GITHUB_OUTPUT"
+          artifacts=$(gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN/artifacts")
+          echo "signed=$(jq 'any(.artifacts[]; .name == "ndm-firefox-signed" and (.expired | not))' <<< "$artifacts")" >> "$GITHUB_OUTPUT"
+          macos=$(jq -r '[.artifacts[] | select(.name | startswith("ndm-macos-signed-")) | select(.expired | not) | .name] | sort | join(",")' <<< "$artifacts")
+          case "$macos" in
+            "") echo "macos=false" >> "$GITHUB_OUTPUT" ;;
+            ndm-macos-signed-arm64,ndm-macos-signed-x64) echo "macos=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "Signed macOS release requires both DMGs." >&2; exit 1 ;;
+          esac
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -57,6 +64,14 @@ jobs:
         if: steps.verify.outputs.signed == 'true'
         with:
           name: ndm-firefox-signed
+          path: release-files
+          run-id: ${{ inputs.build }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        if: steps.verify.outputs.macos == 'true'
+        with:
+          pattern: ndm-macos-signed-*
+          merge-multiple: true
           path: release-files
           run-id: ${{ inputs.build }}
           github-token: ${{ github.token }}

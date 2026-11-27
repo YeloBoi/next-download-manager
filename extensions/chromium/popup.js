@@ -6,8 +6,8 @@ const translations = {
   fa:{title:'ارسال به NDM',urls:'لینک مستقیم؛ هر لینک در یک خط',extract:'پیداکردن لینک‌های این صفحه',queue:'افزودن همه به صف',now:'دانلود همه',hint:'فقط لینک‌های انتخاب‌شده ارسال می‌شوند. NDM کوکی‌ها یا تاریخچهٔ مرور را نمی‌خواند.',connected:'برنامه متصل است',offline:'در انتظار NDM؛ نسخهٔ جدید برنامه را اجرا کنید. ارتباط به‌صورت خودکار برقرار می‌شود.',accepted:'لینک‌ها در NDM پذیرفته شدند. صف مکث‌شده منتظر می‌ماند؛ در NDM شروع صف را بزنید.',none:'لینک HTTP یا HTTPS پیدا نشد.',failed:'لینک‌ها ذخیره‌اند. تنظیم اتصال را بررسی و دوباره ارسال کنید.',extractError:'استخراج لینک از این صفحه مجاز نیست.',collect:'افزودن به انتخاب‌ها',selection:'انتخاب‌های ذخیره‌شده',clear:'پاک‌کردن انتخاب‌ها',remove:'حذف',up:'انتقال به بالا',down:'انتقال به پایین',empty:'لینکی ذخیره نشده است. از هر تب لینک جمع کنید.',invalid:'لینک معتبر HTTP یا HTTPS وارد کنید؛ حداکثر ۱۰۰ لینک مجاز است.'},
 };
 const diagnostics = {
-  en:{setup:'Open the updated NDM app and use Check connection to register this extension.',launch:'NDM could not open or reply. Open it once, then retry.',version:'Update both NDM and its browser extension from the same release.',batch:'Send a smaller batch of links.',empty:'Add at least one direct link first.',setupGuide:'Connection help'},
-  fa:{setup:'نسخهٔ جدید NDM را باز کنید و برای ثبت افزونه، دکمهٔ بررسی اتصال را بزنید.',launch:'NDM باز نشد یا پاسخ نداد. برنامه را یک‌بار باز کنید و دوباره بفرستید.',version:'برنامهٔ NDM و افزونه را از یک نسخهٔ انتشار به‌روز کنید.',batch:'لینک‌ها را در گروه‌های کوچک‌تر بفرستید.',empty:'اول دست‌کم یک لینک مستقیم اضافه کنید.',setupGuide:'راهنمای اتصال'},
+  en:{setup:'Open the updated NDM app and use Check connection to register this extension.',launch:'NDM could not open or reply. Open it once, then retry.',version:'Update the NDM desktop app and browser extension.',batch:'Send a smaller batch of links.',empty:'Add at least one direct link first.',setupGuide:'Connection help'},
+  fa:{setup:'نسخهٔ جدید NDM را باز کنید و برای ثبت افزونه، دکمهٔ بررسی اتصال را بزنید.',launch:'NDM باز نشد یا پاسخ نداد. برنامه را یک‌بار باز کنید و دوباره بفرستید.',version:'برنامهٔ NDM و افزونهٔ مرورگر را به‌روز کنید.',batch:'لینک‌ها را در گروه‌های کوچک‌تر بفرستید.',empty:'اول دست‌کم یک لینک مستقیم اضافه کنید.',setupGuide:'راهنمای اتصال'},
 };
 let {language='en'}=await api.storage.local.get('language').catch(()=>({}));
 let text=translations[language]||translations.en;
@@ -41,12 +41,14 @@ updateRow.querySelector('button').addEventListener('click',()=>{
   void api.storage.local.set({ndmUpdateLater:dismissed}).catch(()=>{});
   renderUpdate();
 });
-void Promise.all([extensionFeed(api.storage.local),api.storage.local.get('ndmUpdateLater')]).then(([feed,store])=>{
-  const manifest=api.runtime.getManifest();
-  dismissed=store.ndmUpdateLater||{};
-  update=newerExtension(feed,manifest.version,manifest.browser_specific_settings?.gecko?'firefox':'chromium');
-  renderUpdate();
-}).catch(()=>{});
+const manifest=api.runtime.getManifest();
+if (manifest.host_permissions?.includes('https://github.com/*')) {
+  void Promise.all([extensionFeed(api.storage.local),api.storage.local.get('ndmUpdateLater')]).then(([feed,store])=>{
+    dismissed=store.ndmUpdateLater||{};
+    update=newerExtension(feed,manifest.version,manifest.browser_specific_settings?.gecko?'firefox':'chromium');
+    renderUpdate();
+  }).catch(()=>{});
+}
 async function operation(operation, values={}) {
   const result=await api.runtime.sendMessage({type:'selection',operation,...values});
   if(!result?.ok)throw new Error(result?.reason || 'delivery');

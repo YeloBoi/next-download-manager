@@ -1,15 +1,21 @@
 use crate::{
     bridge_directory, CHROMIUM_MANIFEST, CHROMIUM_ORIGIN, FIREFOX_ID, FIREFOX_MANIFEST, HOST,
 };
-use std::{os::windows::process::CommandExt, path::Path, process::Command};
+use std::path::Path;
+#[cfg(windows)]
+use std::{os::windows::process::CommandExt, process::Command};
 
+#[cfg(windows)]
 const CHROMIUM_KEYS: [&str; 2] = ["Google\\Chrome", "Microsoft\\Edge"];
+#[cfg(windows)]
 const FIREFOX_KEY: &str = "Mozilla";
 
+#[cfg(windows)]
 fn registry(browser: &str) -> String {
     format!("HKCU\\Software\\{browser}\\NativeMessagingHosts\\{HOST}")
 }
 
+#[cfg(windows)]
 fn reg() -> Result<Command, String> {
     let windows = std::env::var_os("SystemRoot").ok_or("Cannot locate Windows.")?;
     let mut command = Command::new(Path::new(&windows).join("System32").join("reg.exe"));
@@ -60,6 +66,12 @@ pub fn register_hosts(host: &Path, additional_id: Option<&str>) -> Result<(), St
     if let Some(id) = additional_id {
         origins.push(format!("chrome-extension://{id}/"));
     }
+    if let Some(id) = option_env!("NDM_CHROME_STORE_ID").filter(|id| !id.is_empty()) {
+        if !valid_id(id) {
+            return Err("Invalid NDM_CHROME_STORE_ID in this desktop build.".into());
+        }
+        origins.push(format!("chrome-extension://{id}/"));
+    }
     origins.push(CHROMIUM_ORIGIN.to_owned());
     origins.sort_unstable();
     origins.dedup();
@@ -70,6 +82,15 @@ pub fn register_hosts(host: &Path, additional_id: Option<&str>) -> Result<(), St
         "path": host, "type": "stdio", "allowed_origins": origins});
     let firefox = serde_json::json!({"name": HOST, "description": "NDM native messaging host",
         "path": host, "type": "stdio", "allowed_extensions": [FIREFOX_ID]});
+    install_manifests(&directory, chromium, firefox)
+}
+
+#[cfg(windows)]
+fn install_manifests(
+    directory: &Path,
+    chromium: serde_json::Value,
+    firefox: serde_json::Value,
+) -> Result<(), String> {
     let mut failed = Vec::new();
     for (filename, manifest, browsers) in [
         (CHROMIUM_MANIFEST, chromium, CHROMIUM_KEYS.as_slice()),
@@ -103,6 +124,7 @@ pub fn register_hosts(host: &Path, additional_id: Option<&str>) -> Result<(), St
     }
 }
 
+#[cfg(windows)]
 pub fn unregister_hosts(host: &Path) -> Result<(), String> {
     let directory = bridge_directory()?;
     for (filename, browsers) in [
@@ -141,6 +163,76 @@ pub fn unregister_hosts(host: &Path) -> Result<(), String> {
             }
         }
         std::fs::remove_file(path).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn mac_manifests() -> Result<[(std::path::PathBuf, bool); 3], String> {
+    let support = dirs::data_local_dir().ok_or("Cannot locate Application Support.")?;
+    let manifest = format!("{HOST}.json");
+    Ok([
+        (
+            support
+                .join("Google/Chrome/NativeMessagingHosts")
+                .join(&manifest),
+            false,
+        ),
+        (
+            support
+                .join("Microsoft Edge/NativeMessagingHosts")
+                .join(&manifest),
+            false,
+        ),
+        (mac_firefox_manifest()?, true),
+    ])
+}
+
+#[cfg(target_os = "macos")]
+pub fn mac_firefox_manifest() -> Result<std::path::PathBuf, String> {
+    let support = dirs::data_local_dir().ok_or("Cannot locate Application Support.")?;
+    Ok(support
+        .join("Mozilla/NativeMessagingHosts")
+        .join(format!("{HOST}.json")))
+}
+
+#[cfg(target_os = "macos")]
+fn install_manifests(
+    directory: &Path,
+    chromium: serde_json::Value,
+    firefox: serde_json::Value,
+) -> Result<(), String> {
+    write_json(&directory.join(CHROMIUM_MANIFEST), &chromium)?;
+    write_json(&directory.join(FIREFOX_MANIFEST), &firefox)?;
+    for (path, is_firefox) in mac_manifests()? {
+        let parent = path.parent().ok_or("Invalid browser manifest path.")?;
+        std::fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
+        write_json(&path, if is_firefox { &firefox } else { &chromium })?;
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+pub fn unregister_hosts(host: &Path) -> Result<(), String> {
+    let directory = bridge_directory()?;
+    let paths = mac_manifests()?.map(|(path, _)| path);
+    for path in paths.into_iter().chain([
+        directory.join(CHROMIUM_MANIFEST),
+        directory.join(FIREFOX_MANIFEST),
+    ]) {
+        let bytes = match std::fs::read(&path) {
+            Ok(bytes) => bytes,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(e) => return Err(format!("{}: {e}", path.display())),
+        };
+        let manifest: serde_json::Value =
+            serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
+        if manifest["path"]
+            .as_str()
+            .is_some_and(|owner| Path::new(owner) == host)
+        {
+            std::fs::remove_file(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+        }
     }
     Ok(())
 }

@@ -267,7 +267,9 @@ impl Actor {
                 self.publish();
                 break;
             }
-            self.schedule();
+            if self.schedule() {
+                self.publish();
+            }
         }
     }
 
@@ -742,15 +744,16 @@ impl Actor {
         }
     }
 
-    fn schedule(&mut self) {
+    fn schedule(&mut self) -> bool {
         let settings = &self.snapshot.settings;
         let now = Local::now();
         let minute = (now.hour() * 60 + now.minute()) as u16;
         if !self.snapshot.running || self.snapshot.draining || self.shutdown.is_some() {
-            return;
+            return false;
         }
         let outside_schedule = settings.schedule_enabled
             && !within_schedule(minute, settings.schedule_start, settings.schedule_end);
+        let mut started = false;
         for job in &mut self.snapshot.downloads {
             if self.active.len() >= settings.concurrent_downloads {
                 break;
@@ -800,7 +803,9 @@ impl Actor {
                 let _ = tx.send(WorkerEvent::Done(job.id, result)).await;
             });
             self.dirty = true;
+            started = true;
         }
+        started
     }
 }
 

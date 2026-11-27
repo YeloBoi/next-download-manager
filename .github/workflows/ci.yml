@@ -1,4 +1,4 @@
-name: Windows checks and build
+name: Desktop checks and build
 on:
   push:
     branches: [main]
@@ -14,8 +14,12 @@ jobs:
     uses: ./.github/workflows/android.yml
   firefox:
     uses: ./.github/workflows/firefox.yml
+  macos:
+    uses: ./.github/workflows/macos.yml
   windows:
     runs-on: windows-2022
+    env:
+      NDM_CHROME_STORE_ID: ${{ vars.NDM_CHROME_STORE_ID }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4

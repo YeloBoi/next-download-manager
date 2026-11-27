@@ -1,0 +1,23 @@
+{
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "NDM — Next Download Manager",
+        "width": 1220,
+        "height": 820,
+        "minWidth": 760,
+        "minHeight": 560,
+        "decorations": false
+      }
+    ]
+  },
+  "bundle": {
+    "targets": ["app", "dmg"],
+    "externalBin": ["binaries/ndm-native-host"],
+    "icon": ["icons/icon.icns", "icons/icon.png"],
+    "macOS": {
+      "minimumSystemVersion": "12.0"
+    }
+  }
+}

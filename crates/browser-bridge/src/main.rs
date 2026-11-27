@@ -6,7 +6,7 @@ use ndm_browser_bridge::{
 #[tokio::main]
 async fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos"))]
     if let [mode, rest @ ..] = args.as_slice() {
         if matches!(mode.as_str(), "--register" | "--unregister") {
             let result = configure(mode, rest);
@@ -22,7 +22,7 @@ async fn main() {
     }
 }
 
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "macos"))]
 fn configure(mode: &str, args: &[String]) -> Result<(), String> {
     let host = std::env::current_exe().map_err(|e| e.to_string())?;
     match (mode, args) {
@@ -163,13 +163,23 @@ async fn forward(
 ) -> Result<Response, String> {
     let id = uuid::Uuid::new_v4().to_string();
     let path = directory.join(&id);
-    // Launch only the sibling desktop executable, never a URL or a shell command.
+    // Launch the installed desktop executable or its enclosing macOS app bundle.
     // Pings do not start the application; only an explicit download request does.
     let mut desktop = if request.kind == "add" {
-        let desktop = std::env::current_exe()
-            .map_err(|e| e.to_string())?
-            .with_file_name("ndm.exe");
-        let mut command = tokio::process::Command::new(desktop);
+        let desktop = std::env::current_exe().map_err(|e| e.to_string())?;
+        #[cfg(target_os = "macos")]
+        let mut command = {
+            let bundle = desktop
+                .ancestors()
+                .nth(3)
+                .filter(|path| path.extension().is_some_and(|ext| ext == "app"))
+                .ok_or("Install NDM.app before connecting the extension.")?;
+            let mut command = tokio::process::Command::new("/usr/bin/open");
+            command.arg("-a").arg(bundle).arg("--args");
+            command
+        };
+        #[cfg(not(target_os = "macos"))]
+        let mut command = tokio::process::Command::new(desktop.with_file_name("ndm.exe"));
         // Firefox kills its native-host job after a one-shot reply; NDM must outlive it.
         #[cfg(windows)]
         if _firefox {
@@ -182,7 +192,7 @@ async fn forward(
             .stderr(std::process::Stdio::null())
             .spawn()
             .map_err(|error| {
-                format!("Could not open NDM: {error}. Keep ndm.exe beside the native host.")
+                format!("Could not open NDM: {error}. Check your desktop installation.")
             })?;
         Some(child)
     } else {
@@ -246,9 +256,16 @@ async fn forward(
 }
 
 fn firefox_caller(args: &[String], directory: &std::path::Path) -> bool {
-    args.len() == 2
-        && std::path::Path::new(&args[0]) == directory.join(FIREFOX_MANIFEST)
-        && args[1] == FIREFOX_ID
+    let [manifest, id] = args else { return false };
+    if id != FIREFOX_ID {
+        return false;
+    }
+    let path = std::path::Path::new(manifest);
+    #[cfg(target_os = "macos")]
+    if ndm_browser_bridge::mac_firefox_manifest().is_ok_and(|registered| path == registered) {
+        return true;
+    }
+    path == directory.join(FIREFOX_MANIFEST)
 }
 
 #[cfg(test)]

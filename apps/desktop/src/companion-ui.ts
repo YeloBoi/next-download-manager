@@ -7,7 +7,7 @@ import type { Key } from './i18n';
 type Translate = (key: Key) => string;
 type Device = { id: string; name: string; online: boolean; remember: boolean };
 type Transfer = { id: string; device: string; name: string; to_pc: boolean; bytes: number; total: number; speed: number; phase: 'ready'|'paused'|'complete'|'failed'; error: string|null };
-type View = { enabled: boolean; pairing: boolean; devices: Device[]; transfers: Transfer[] };
+type View = { enabled: boolean; pairing: boolean; windows_pairing: boolean; devices: Device[]; transfers: Transfer[] };
 type Usage = { device: 'pc'|'mobile'; hour: number; bytes: number; category: string };
 type Update = { version: string; notes: string; installable: boolean; portable: boolean };
 type QR = { path: string; size: number; expires: number; host: string; remote?: boolean; bluetooth?: boolean };
@@ -87,8 +87,8 @@ export function companionUI(native: boolean, t: Translate, toast: (message: stri
     if (qr&&Date.now()>=qr.expires*1000) { qr=null; qrExpired=true; }
     const devices=view?.devices||[];
     const available=creatingQr?'disabled':'';
-    const markup=`<div class="feature-actions">${buttons(view?.enabled?'phoneDisable':'phoneEnable','feature-enable-phone',t,(!native||!view||creatingQr)?'disabled':'')}${view?.enabled?buttons('pairBluetooth','feature-pair-bluetooth',t,available)+buttons('pairNetwork','feature-pair-network',t,`aria-expanded="${networkOptions}" ${available}`):''}</div>
-      ${view?.enabled&&networkOptions?`<p class="feature-muted">${e(t('networkPairHelp'))}</p><div class="feature-actions">${buttons('pairPhone','feature-pair-phone',t,available)}${buttons('pairRemote','feature-pair-remote',t,available)}</div>`:''}
+    const markup=`<div class="feature-actions">${buttons(view?.enabled?'phoneDisable':'phoneEnable','feature-enable-phone',t,(!native||!view||creatingQr)?'disabled':'')}${view?.enabled?(view.windows_pairing?buttons('pairBluetooth','feature-pair-bluetooth',t,available):'')+buttons('pairNetwork','feature-pair-network',t,`aria-expanded="${networkOptions}" ${available}`):''}</div>
+      ${view?.enabled&&networkOptions?`<p class="feature-muted">${e(t('networkPairHelp'))}</p><div class="feature-actions">${buttons('pairPhone','feature-pair-phone',t,available)}${view.windows_pairing?buttons('pairRemote','feature-pair-remote',t,available):''}</div>`:''}
       ${creatingQr?`<p role="status">${e(t('pairPreparing'))}</p>`:''}
       ${pairingError?`<p class="form-error" role="alert">${e(pairingError)}</p>`:''}
       ${qr?`<figure class="pair-qr"><svg viewBox="0 0 ${qr.size} ${qr.size}" aria-label="${e(t(qr.bluetooth?'pairBluetooth':qr.remote?'pairRemote':'pairPhone'))}" role="img"><path d="${e(qr.path)}"></path></svg><figcaption>${e(t(qr.bluetooth?'bluetoothPairHelp':'pairHelp'))}<br><span dir="ltr">${e(qr.host)}</span></figcaption></figure>`:qrExpired?`<p class="feature-muted">${e(t('pairExpired'))}</p>`:''}

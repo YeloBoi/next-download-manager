@@ -71,7 +71,7 @@ try {
         if(command==='snapshot'||command==='command')return {downloads:[],running:false,draining:false,settings:{directory:'C:\\Downloads',language:'en',theme:'dark',compact:false,concurrent_downloads:1,connections_per_file:1,global_connections:16,host_connections:8,speed_limit:0,resume_on_launch:false,stop_on_error:false,schedule_enabled:false,schedule_start:0,schedule_end:0,close_to_tray:false,confirmless_add:false}};
         if(command==='preview_download')return {name:'Test archive.zip',total:10240,resumable:true,directory:'C:\\Downloads\\Archives'};
         if(command==='check_update')return {version:'0.2.0',notes:'A new build',installable:true,portable:false};
-        if(command==='companion_view')return {enabled:true,pairing:true,devices:[{id:'demo',name:'Android phone',online:true}],transfers:[]};
+        if(command==='companion_view')return {enabled:true,pairing:true,windows_pairing:true,devices:[{id:'demo',name:'Android phone',online:true}],transfers:[]};
         if(command==='companion_pair')return {path:'M4 4h1v1z',size:20,host:args.bluetooth?'00:11:22:33:44:55':'192.168.1.12:42672',expires:Math.floor(Date.now()/1000)+120,bluetooth:args.bluetooth};
         if(command==='download_usage')return [{device:'pc',hour:Math.floor(Date.now()/3600000),bytes:1024,category:'archives'},{device:'mobile',hour:Math.floor(Date.now()/3600000),bytes:2048,category:'images'}];
         if(command==='plugin:event|listen')return 1;

@@ -1,4 +1,4 @@
-# NDM 0.1.0-alpha.14 — macOS build support and queue fixes
+# NDM 0.1.0-alpha.15 — macOS build support and queue fixes
 
 - Add Apple Silicon and Intel macOS builds with a bundled browser connection for Chrome, Edge, and Firefox. Public macOS DMGs are included when Apple signing and notarization are configured.
 - Publish queue state immediately when a paused download resumes so the interface shows the active transfer promptly.

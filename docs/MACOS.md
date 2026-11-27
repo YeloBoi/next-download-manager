@@ -36,6 +36,9 @@ Application .p12), `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`,
 Use the same settings when signing locally with Tauri. The tagged release
 workflow attaches macOS DMGs after the app passes signature and stapled
 notarization checks. Without a signing identity the workflow retains the DMGs
-as CI artifacts for local testing.
+as CI artifacts for local testing. To offer those tested builds directly from an
+existing GitHub Release, run **Attach tested macOS DMGs** with its release tag
+and successful tagged-release workflow run ID. The attached filenames say
+`unsigned` and the separate `SHA256SUMS-macos` covers both DMGs.
 
 [Apple notarization](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution) · [Tauri macOS signing](https://v2.tauri.app/distribute/sign/macos/)

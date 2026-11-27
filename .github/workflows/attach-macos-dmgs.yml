@@ -1,0 +1,67 @@
+name: Attach tested macOS DMGs
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published release tag
+        required: true
+        type: string
+      build:
+        description: Successful tagged-release workflow run ID
+        required: true
+        type: string
+  push:
+    branches: [main]
+    paths: ['.github/workflows/attach-macos-dmgs.yml']
+permissions:
+  actions: read
+  contents: write
+concurrency:
+  group: attach-macos-${{ inputs.tag || 'v0.1.0-alpha.15' }}
+jobs:
+  attach:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ inputs.tag || 'v0.1.0-alpha.15' }}
+      BUILD_RUN: ${{ inputs.build || '46058598991' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify build provenance and published release
+        run: |
+          set -euo pipefail
+          [[ "$BUILD_RUN" =~ ^[0-9]+$ ]]
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]
+          git fetch --no-tags origin "refs/tags/$RELEASE_TAG"
+          sha=$(git rev-parse 'FETCH_HEAD^{commit}')
+          gh api "repos/$GH_REPO/actions/runs/$BUILD_RUN" |
+            jq -e --arg tag "$RELEASE_TAG" --arg sha "$sha" '
+              .head_sha == $sha and .head_branch == $tag and
+              .path == ".github/workflows/release.yml" and .event == "push" and .conclusion == "success"
+            '
+          gh release view "$RELEASE_TAG" --json isDraft,tagName --jq '.isDraft == false and .tagName != ""' | grep -Fx true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ndm-macos-*
+          merge-multiple: true
+          path: macos-builds
+          run-id: ${{ inputs.build || '46058598991' }}
+          github-token: ${{ github.token }}
+      - name: Attach unsigned DMGs and their checksums
+        run: |
+          set -euo pipefail
+          cd macos-builds
+          version="${RELEASE_TAG#v}"
+          assets=()
+          for arch in arm64 x64; do
+            source="NDM-$version-macos-$arch.dmg"
+            target="NDM-$version-macos-$arch-unsigned.dmg"
+            test -s "$source"
+            mv -- "$source" "$target"
+            assets+=("$target")
+          done
+          sha256sum -- "${assets[@]}" > SHA256SUMS-macos
+          sha256sum --check --strict SHA256SUMS-macos
+          gh release upload "$RELEASE_TAG" "${assets[@]}" SHA256SUMS-macos
